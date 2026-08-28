@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Platform runtime
+platform/.env
+platform/projects/
+*.egg-info/
+
+# Temporary clones
+sample-bank-base/
+sample-bank-tmp/
+
+# Java build
+**/target/

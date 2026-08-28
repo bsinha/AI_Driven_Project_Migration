@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: account-lifecycle-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/account_lifecycle:
+    get:
+      summary: List account_lifecycle
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create account_lifecycle
+      responses:
+        '201':
+          description: Created

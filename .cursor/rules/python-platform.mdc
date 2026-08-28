@@ -1,0 +1,12 @@
+---
+description: Python platform conventions for migrate_framework
+globs: platform/**/*.py
+alwaysApply: false
+---
+
+# Python Platform
+
+- Package: `migrate_framework` under `platform/`
+- Adapters emit **technology-neutral** `EvidenceItem` — no stack logic in pipeline core
+- Use NetworkX for graph; FastAPI for API; Streamlit for UI
+- OpenAI optional — mock hypotheses when `OPENAI_API_KEY` unset

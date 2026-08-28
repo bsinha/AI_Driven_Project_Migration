@@ -1,0 +1,15 @@
+---
+description: Core project standards — 8-stage migration pipeline, evidence-first AI
+alwaysApply: true
+---
+
+# EuroSA Bank Migration POC
+
+Follow the **8-stage Migration Pipeline**: Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → Plan → Guide.
+
+- Stages 1–4 are **deterministic only** (no LLM).
+- Stages 5–7 require **evidence-backed** AI output.
+- Stages 6–7 require **human approval** before advancing.
+- **Never auto-merge services** — Stage 8 is developer-guided execution only.
+
+Framework core is **technology-agnostic**; stack-specific logic lives in ingestion adapters only.

@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: payment-execution-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/payment_execution:
+    get:
+      summary: List payment_execution
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create payment_execution
+      responses:
+        '201':
+          description: Created

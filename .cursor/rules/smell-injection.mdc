@@ -1,0 +1,17 @@
+---
+description: Intentional anti-patterns in sample-bank — do not fix
+globs: sample-bank/**
+alwaysApply: false
+---
+
+# Smell Injection (intentional)
+
+Do **not** refactor toward clean architecture in `sample-bank/granular-services/`:
+
+- Shared `customer_db` across 5 customer services
+- Synchronous REST dependency chains
+- Cross-service FK patterns
+- Granularity smell (5 customer, 4 payment services)
+- False cohesion: `customer-preference` vs `risk-assessment`
+
+These exist so the migration framework can detect and recommend consolidation.

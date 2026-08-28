@@ -1,0 +1,12 @@
+---
+description: Spring Boot conventions for sample-bank granular services
+globs: sample-bank/**/*.java,**/pom.xml
+alwaysApply: false
+---
+
+# Java Microservices (POC sample bank)
+
+- Spring Boot 3.x, Java 17
+- Each granular service must have: `pom.xml`, `application.yml`, `openapi.yaml`
+- Intentional smells (shared DB, sync chains) must **not** be refactored away
+- EuroSA Bank branding; ZAR/FICA references for SA footprint

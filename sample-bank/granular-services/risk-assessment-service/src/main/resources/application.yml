@@ -1,0 +1,17 @@
+server:
+  port: 8114
+
+spring:
+  application:
+    name: risk-assessment-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/risk_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+eurosa:
+  downstream:
+    customer-identity-service: http://localhost:8101

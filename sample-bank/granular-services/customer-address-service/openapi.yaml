@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: customer-address-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/customer_address:
+    get:
+      summary: List customer_address
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create customer_address
+      responses:
+        '201':
+          description: Created

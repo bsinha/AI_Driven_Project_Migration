@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: risk-assessment-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/risk_assessment:
+    get:
+      summary: List risk_assessment
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create risk_assessment
+      responses:
+        '201':
+          description: Created

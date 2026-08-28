@@ -1,0 +1,16 @@
+{
+  "trace_id": "pay-001",
+  "name": "EuroSA domestic payment (ZAR)",
+  "spans": [
+    {"service": "payment-initiation-service", "operation": "POST /api/payment_requests", "duration_ms": 12},
+    {"service": "payment-validation-service", "operation": "POST /api/validate", "duration_ms": 45, "sync": true},
+    {"service": "account-rules-service", "operation": "GET /api/overdraft_limits", "duration_ms": 38, "sync": true},
+    {"service": "compliance-service", "operation": "POST /api/fica-check", "duration_ms": 120, "sync": true},
+    {"service": "payment-execution-service", "operation": "POST /api/execute", "duration_ms": 55, "sync": true},
+    {"service": "ledger-service", "operation": "POST /api/ledger_entries", "duration_ms": 30, "sync": true},
+    {"service": "payment-status-service", "operation": "PUT /api/payment_status", "duration_ms": 18, "sync": true},
+    {"service": "notification-service", "operation": "POST /api/notifications", "duration_ms": 22, "sync": true}
+  ],
+  "sync_hops": 7,
+  "notes": "Intentional synchronous chain spanning payments, account, compliance, ledger"
+}

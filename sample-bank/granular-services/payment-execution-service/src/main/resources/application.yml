@@ -1,0 +1,18 @@
+server:
+  port: 8111
+
+spring:
+  application:
+    name: payment-execution-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/payment_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+eurosa:
+  downstream:
+    payment-validation-service: http://localhost:8110
+    ledger-service: http://localhost:8113

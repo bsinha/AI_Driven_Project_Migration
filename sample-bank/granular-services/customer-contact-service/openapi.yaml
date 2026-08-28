@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: customer-contact-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/customer_contact:
+    get:
+      summary: List customer_contact
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create customer_contact
+      responses:
+        '201':
+          description: Created

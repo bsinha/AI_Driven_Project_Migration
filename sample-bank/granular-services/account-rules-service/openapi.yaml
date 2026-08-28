@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: account-rules-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/account_rules:
+    get:
+      summary: List account_rules
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create account_rules
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,146 @@
+# EuroSA Bank — granular microservice landscape (intentionally over-decomposed)
+# Derived from banking-system-microservices; smells injected for migration POC.
+
+bank:
+  name: EuroSA Bank
+  regions: [EU, ZA]
+  currencies: [EUR, ZAR]
+
+services:
+  # Customer domain — granularity smell (5 services, shared customer_db)
+  - id: customer-identity-service
+    port: 8101
+    database: customer_db
+    tables: [customers, customer_kyc]
+    depends_on: []
+    team: customer-squad
+    smells: [shared_database, granular_decomposition]
+
+  - id: customer-address-service
+    port: 8102
+    database: customer_db
+    tables: [customer_addresses]
+    depends_on: [customer-identity-service]
+    team: customer-squad
+    smells: [shared_database, cross_service_fk, sync_rest_chain]
+
+  - id: customer-contact-service
+    port: 8103
+    database: customer_db
+    tables: [customer_contacts]
+    depends_on: [customer-identity-service]
+    team: customer-squad
+    smells: [shared_database, sync_rest_chain]
+
+  - id: customer-preference-service
+    port: 8104
+    database: customer_db
+    tables: [customer_preferences]
+    depends_on: [customer-identity-service]
+    team: customer-squad
+    smells: [shared_database, false_cohesion_candidate]
+
+  - id: customer-status-service
+    port: 8105
+    database: customer_db
+    tables: [customer_status]
+    depends_on: [customer-identity-service, customer-address-service]
+    team: customer-squad
+    smells: [shared_database, lifecycle_split]
+
+  # Account domain
+  - id: account-service
+    port: 8106
+    database: account_db
+    tables: [accounts]
+    depends_on: [customer-identity-service]
+    team: account-squad
+
+  - id: account-rules-service
+    port: 8107
+    database: account_db
+    tables: [account_rules, overdraft_limits]
+    depends_on: [account-service]
+    team: account-squad
+    smells: [shared_database, sync_rest_chain]
+
+  - id: account-lifecycle-service
+    port: 8108
+    database: account_db
+    tables: [account_lifecycle_events]
+    depends_on: [account-service, account-rules-service]
+    team: account-squad
+    smells: [shared_database, sync_rest_chain]
+
+  # Payments domain (split from transfer-service)
+  - id: payment-initiation-service
+    port: 8109
+    database: payment_db
+    tables: [payment_requests]
+    depends_on: [account-service]
+    team: payments-squad
+
+  - id: payment-validation-service
+    port: 8110
+    database: payment_db
+    tables: [payment_validations]
+    depends_on: [payment-initiation-service, account-rules-service]
+    team: payments-squad
+    smells: [sync_rest_chain, distributed_transaction_path]
+
+  - id: payment-execution-service
+    port: 8111
+    database: payment_db
+    tables: [payment_executions]
+    depends_on: [payment-validation-service, ledger-service]
+    team: payments-squad
+    smells: [sync_rest_chain]
+
+  - id: payment-status-service
+    port: 8112
+    database: payment_db
+    tables: [payment_status]
+    depends_on: [payment-execution-service]
+    team: payments-squad
+
+  # Supporting
+  - id: ledger-service
+    port: 8113
+    database: ledger_db
+    tables: [ledger_entries]
+    depends_on: []
+    team: payments-squad
+    smells: [sync_called_by_payment]
+
+  - id: risk-assessment-service
+    port: 8114
+    database: risk_db
+    tables: [risk_scores]
+    depends_on: [customer-identity-service]
+    team: risk-squad
+    smells: [false_cohesion, customer_in_api_name]
+
+  - id: compliance-service
+    port: 8115
+    database: compliance_db
+    tables: [compliance_checks, fica_records]
+    depends_on: [customer-identity-service, payment-initiation-service]
+    team: risk-squad
+    region_notes: FICA for ZA footprint
+
+  - id: notification-service
+    port: 8116
+    database: notification_db
+    tables: [notifications]
+    depends_on: [payment-status-service, customer-contact-service]
+    team: platform-squad
+
+target_bounded_contexts:
+  - name: Customer Management
+    services: [customer-identity-service, customer-address-service, customer-contact-service, customer-preference-service, customer-status-service]
+  - name: Account Management
+    services: [account-service, account-rules-service, account-lifecycle-service]
+  - name: Payments
+    services: [payment-initiation-service, payment-validation-service, payment-execution-service, payment-status-service, ledger-service]
+  - name: Risk and Compliance
+    services: [risk-assessment-service, compliance-service]

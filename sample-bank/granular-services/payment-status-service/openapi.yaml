@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: payment-status-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/payment_status:
+    get:
+      summary: List payment_status
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create payment_status
+      responses:
+        '201':
+          description: Created

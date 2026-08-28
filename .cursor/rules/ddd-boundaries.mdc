@@ -1,0 +1,12 @@
+---
+description: DDD bounded context and ADR standards
+globs: platform/migrate_framework/analysis/**,docs/**
+alwaysApply: false
+---
+
+# DDD and ADRs
+
+- Recommendations must cite **evidence** (metrics, traces, co-change, data ownership)
+- ADRs include: context name, services grouped, why together, why not separate, risks
+- Flag **false cohesion** when naming overlaps but data/traffic does not
+- Confidence scores must reference specific evidence bullets

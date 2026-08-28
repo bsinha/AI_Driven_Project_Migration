@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: notification-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/notification:
+    get:
+      summary: List notification
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create notification
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info:
+  title: ledger-service
+  version: 1.0.0
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/ledger:
+    get:
+      summary: List ledger
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create ledger
+      responses:
+        '201':
+          description: Created

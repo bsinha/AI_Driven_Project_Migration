@@ -1,0 +1,25 @@
+capabilities:
+  - id: customer-management
+    name: Customer Management
+    description: Identity, address, contact, preferences, lifecycle status
+    expected_context: Customer Management
+
+  - id: account-management
+    name: Account Management
+    description: Accounts, rules, lifecycle (open, close, freeze)
+    expected_context: Account Management
+
+  - id: payments
+    name: Payments
+    description: Initiation, validation, execution, status, ledger
+    expected_context: Payments
+
+  - id: risk-compliance
+    name: Risk and Compliance
+    description: Fraud scoring, AML, FICA (ZA)
+    expected_context: Risk and Compliance
+
+  - id: notifications
+    name: Notifications
+    description: SMS/email alerts — supporting subdomain
+    expected_context: Supporting
