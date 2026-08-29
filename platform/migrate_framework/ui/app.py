@@ -16,6 +16,11 @@ from migrate_framework.models import (
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.ui.artifact_views import STAGE_TITLES, render_artifacts, render_stage_artifacts
+from migrate_framework.reporting.pipeline_report import (
+    generate_html_report,
+    generate_markdown_report,
+    report_filename,
+)
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -184,6 +189,8 @@ projects = store.list_projects()
 selected = st.selectbox("Project", options=["— new —"] + projects)
 
 project: MigrationProject | None = None
+report_md: str | None = None
+report_html: str | None = None
 
 if selected == "— new —":
     st.subheader("Initialize project")
@@ -207,6 +214,28 @@ else:
         st.markdown(f"**Source** `{_short_path(project.source_root, 64)}`")
     with meta[2]:
         st.markdown(f"**Stack** {project.tech_stack.primary_stack()}")
+
+    report_md = generate_markdown_report(project)
+    report_html = generate_html_report(project)
+    dl1, dl2 = st.columns(2)
+    with dl1:
+        st.download_button(
+            "Download report (Markdown)",
+            data=report_md,
+            file_name=report_filename(project, "md"),
+            mime="text/markdown",
+            use_container_width=True,
+            help="Shareable summary for architects and stakeholders",
+        )
+    with dl2:
+        st.download_button(
+            "Download report (HTML)",
+            data=report_html,
+            file_name=report_filename(project, "html"),
+            mime="text/html",
+            use_container_width=True,
+            help="Print-ready report; use browser Print to PDF",
+        )
 
 if project:
     completed = _completed_stages(project)
@@ -262,7 +291,25 @@ if project:
     else:
         _render_all_content(project)
 
+st.sidebar.header("Stakeholder report")
+st.sidebar.caption("Download a summary of pipeline findings, ADRs, and migration plan.")
+if project and report_md and report_html:
+    st.sidebar.download_button(
+        "Markdown report",
+        data=report_md,
+        file_name=report_filename(project, "md"),
+        mime="text/markdown",
+        use_container_width=True,
+    )
+    st.sidebar.download_button(
+        "HTML report",
+        data=report_html,
+        file_name=report_filename(project, "html"),
+        mime="text/html",
+        use_container_width=True,
+    )
+
 st.sidebar.header("API")
 st.sidebar.code("uvicorn migrate_framework.api.main:app --reload --port 8080")
 st.sidebar.header("CLI")
-st.sidebar.code("migrate-framework init --name demo --source ../sample-bank")
+st.sidebar.code("migrate-framework report --project-id <id>")

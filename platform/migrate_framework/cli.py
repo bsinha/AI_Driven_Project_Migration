@@ -12,6 +12,11 @@ from dotenv import load_dotenv
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
+from migrate_framework.reporting.pipeline_report import (
+    generate_html_report,
+    generate_markdown_report,
+    report_filename,
+)
 
 
 def _repo_root() -> Path:
@@ -76,6 +81,28 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    store = ProjectStore()
+    project = store.load_project(args.project_id)
+    if args.format == "html":
+        content = generate_html_report(project)
+        extension = "html"
+    else:
+        content = generate_markdown_report(project)
+        extension = "md"
+
+    filename = report_filename(project, extension)
+    if args.output:
+        output_path = Path(args.output)
+    else:
+        output_path = store.project_path(project.id) / "artifacts" / filename
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(content, encoding="utf-8")
+    print(json.dumps({"project_id": project.id, "path": str(output_path), "format": args.format}, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="migrate-framework", description="Microservice-to-DDD migration framework")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -106,6 +133,12 @@ def build_parser() -> argparse.ArgumentParser:
     status_p = sub.add_parser("status", help="Show project status")
     status_p.add_argument("--project-id", required=True)
     status_p.set_defaults(func=cmd_status)
+
+    report_p = sub.add_parser("report", help="Generate stakeholder migration report")
+    report_p.add_argument("--project-id", required=True)
+    report_p.add_argument("--format", choices=["md", "html"], default="md")
+    report_p.add_argument("--output", help="Output file path (default: project artifacts folder)")
+    report_p.set_defaults(func=cmd_report)
 
     return parser
 
