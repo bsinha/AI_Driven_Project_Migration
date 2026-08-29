@@ -19,13 +19,17 @@ streamlit run migrate_framework/ui/app.py
 
 ## Repository layout
 
-| Path | Purpose |
-|------|---------|
-| `platform/migrate_framework/` | Python framework (pipeline, adapters, graph, AI) |
-| `sample-bank/granular-services/` | 16 intentional granular Java services |
-| `metadata/` | Synthetic traces, co-change, teams |
-| `docs/` | Problem statement, methodology, demo script |
-| `.cursor/rules/` | Cursor AI guidance |
+
+| Path                             | Purpose                                          |
+| -------------------------------- | ------------------------------------------------ |
+| `platform/migrate_framework/`    | Python framework (pipeline, adapters, graph, AI) |
+| `sample-bank/granular-services/` | 16 intentional granular Java services            |
+| `metadata/`                      | Synthetic traces, co-change, teams               |
+| `docs/`                          | Problem statement, methodology, demo script      |
+| `.cursor/rules/`                 | Cursor AI guidance                               |
+
+
+
 
 ## Pipeline
 
@@ -38,6 +42,8 @@ Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → *
 - [Problem statement](docs/problem-statement.md)
 - [Framework methodology](docs/framework-methodology.md)
 - [POC demo script](docs/poc-demo-script.md)
+
+
 
 ## Environment
 
