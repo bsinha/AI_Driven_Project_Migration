@@ -16,6 +16,7 @@ from migrate_framework.models import (
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.ui.artifact_views import STAGE_TITLES, render_artifacts, render_stage_artifacts
+from migrate_framework.ui.playbook_execution import render_playbook_execution
 from migrate_framework.reporting.pipeline_report import (
     generate_html_report,
     generate_markdown_report,
@@ -284,6 +285,10 @@ if project:
                     if st.button(f"Approve {gate.stage.value}", key=f"approve-{gate.stage.value}"):
                         orch.approve(project.id, gate.stage)
                         st.rerun()
+
+    st.divider()
+    if PipelineStage.PLAYBOOK in completed:
+        render_playbook_execution(project, store)
 
     st.divider()
     if st.session_state.pipeline_content_view == "stage":
