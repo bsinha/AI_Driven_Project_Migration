@@ -3,6 +3,9 @@
 from migrate_framework.models import (
     ApprovalGate,
     EvidenceItem,
+    GateDecisionAction,
+    GateDecisionStatus,
+    GATE_REASON_CODES,
     Landscape,
     MigrationProject,
     PipelineStage,
@@ -12,6 +15,9 @@ from migrate_framework.models import (
 __all__ = [
     "ApprovalGate",
     "EvidenceItem",
+    "GateDecisionAction",
+    "GateDecisionStatus",
+    "GATE_REASON_CODES",
     "Landscape",
     "MigrationProject",
     "PipelineStage",
