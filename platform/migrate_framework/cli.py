@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
+from migrate_framework.models import GATE_REASON_CODES, PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.reporting.pipeline_report import (
@@ -50,9 +50,55 @@ def cmd_approve(args: argparse.Namespace) -> int:
     load_dotenv(_repo_root() / ".env")
     orch = PipelineOrchestrator()
     stage = PipelineStage(args.stage.lower())
-    project = orch.approve(args.project_id, stage, approved_by=args.by, notes=args.notes)
+    project = orch.approve(
+        args.project_id,
+        stage,
+        approved_by=args.by,
+        notes=args.notes,
+        reason_code=args.reason_code,
+        reason_text=args.reason_text,
+        allow_low_confidence=args.allow_low_confidence,
+    )
     gate = project.gate_for(stage)
-    print(json.dumps({"project_id": project.id, "stage": stage.value, "approved": gate.approved if gate else False}, indent=2))
+    print(
+        json.dumps(
+            {
+                "project_id": project.id,
+                "stage": stage.value,
+                "status": gate.status.value if gate else None,
+                "approved": gate.approved if gate else False,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+def cmd_reject(args: argparse.Namespace) -> int:
+    load_dotenv(_repo_root() / ".env")
+    orch = PipelineOrchestrator()
+    stage = PipelineStage(args.stage.lower())
+    project = orch.reject(args.project_id, stage, args.by, args.reason_code, args.reason_text, args.notes)
+    gate = project.gate_for(stage)
+    print(json.dumps({"project_id": project.id, "stage": stage.value, "status": gate.status.value}, indent=2))
+    return 0
+
+
+def cmd_waive(args: argparse.Namespace) -> int:
+    load_dotenv(_repo_root() / ".env")
+    orch = PipelineOrchestrator()
+    stage = PipelineStage(args.stage.lower())
+    project = orch.waive(args.project_id, stage, args.by, args.reason_code, args.reason_text, args.notes)
+    gate = project.gate_for(stage)
+    print(json.dumps({"project_id": project.id, "stage": stage.value, "status": gate.status.value}, indent=2))
+    return 0
+
+
+def cmd_request_evidence(args: argparse.Namespace) -> int:
+    load_dotenv(_repo_root() / ".env")
+    orch = PipelineOrchestrator()
+    project = orch.request_evidence(args.project_id, args.description, args.by)
+    print(json.dumps({"project_id": project.id, "playbook_tasks": len(project.metadata.get("playbook", []))}, indent=2))
     return 0
 
 
@@ -72,7 +118,13 @@ def cmd_status(args: argparse.Namespace) -> int:
         "current_stage": project.current_stage.value,
         "tech_stack": project.tech_stack.model_dump(),
         "gates": [
-            {"stage": g.stage.value, "required": g.required, "approved": g.approved}
+            {
+                "stage": g.stage.value,
+                "required": g.required,
+                "approved": g.approved,
+                "status": g.status.value,
+                "iteration_round": g.iteration_round,
+            }
             for g in project.approval_gates
         ],
         "completed_stages": [r.stage.value for r in project.stage_runs if r.status == "completed"],
@@ -125,7 +177,34 @@ def build_parser() -> argparse.ArgumentParser:
     approve_p.add_argument("--stage", required=True, choices=[s.value for s in PIPELINE_STAGE_ORDER])
     approve_p.add_argument("--by", default="operator")
     approve_p.add_argument("--notes")
+    approve_p.add_argument("--reason-code", choices=GATE_REASON_CODES)
+    approve_p.add_argument("--reason-text")
+    approve_p.add_argument("--allow-low-confidence", action="store_true")
     approve_p.set_defaults(func=cmd_approve)
+
+    reject_p = sub.add_parser("reject", help="Reject a stage gate (blocks pipeline)")
+    reject_p.add_argument("--project-id", required=True)
+    reject_p.add_argument("--stage", required=True, choices=[s.value for s in PIPELINE_STAGE_ORDER])
+    reject_p.add_argument("--by", default="operator")
+    reject_p.add_argument("--reason-code", required=True, choices=GATE_REASON_CODES)
+    reject_p.add_argument("--reason-text", required=True)
+    reject_p.add_argument("--notes")
+    reject_p.set_defaults(func=cmd_reject)
+
+    waive_p = sub.add_parser("waive", help="Waive a required gate with documented exception")
+    waive_p.add_argument("--project-id", required=True)
+    waive_p.add_argument("--stage", required=True, choices=[s.value for s in PIPELINE_STAGE_ORDER])
+    waive_p.add_argument("--by", default="operator")
+    waive_p.add_argument("--reason-code", required=True, choices=GATE_REASON_CODES)
+    waive_p.add_argument("--reason-text", required=True)
+    waive_p.add_argument("--notes")
+    waive_p.set_defaults(func=cmd_waive)
+
+    evidence_p = sub.add_parser("request-evidence", help="Add SME evidence-gap playbook task")
+    evidence_p.add_argument("--project-id", required=True)
+    evidence_p.add_argument("--description", required=True)
+    evidence_p.add_argument("--by", default="operator")
+    evidence_p.set_defaults(func=cmd_request_evidence)
 
     list_p = sub.add_parser("list", help="List migration projects")
     list_p.set_defaults(func=cmd_list)

@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+import os
+
 from dotenv import load_dotenv
 
 from migrate_framework.analysis.diagnose import diagnose
@@ -15,8 +17,15 @@ from migrate_framework.ingestion.discover import discover_project
 from migrate_framework.ingestion.registry import DEFAULT_REGISTRY
 from migrate_framework.migration.playbook import build_playbook, playbook_to_evidence
 from migrate_framework.migration.planner import phases_to_evidence, plan_migration
-from migrate_framework.models import MigrationProject, PIPELINE_STAGE_ORDER, PipelineStage, StageRun
+from migrate_framework.models import GateDecisionAction, MigrationProject, PIPELINE_STAGE_ORDER, PipelineStage, StageRun
+from migrate_framework.pipeline.governance import (
+    add_evidence_gap_playbook_task,
+    confidence_blocks_approval,
+    record_gate_decision,
+    save_adr_version,
+)
 from migrate_framework.pipeline.project_store import ProjectStore
+from migrate_framework.vv.capability_matrix import build_capability_matrix, matrix_summary
 
 load_dotenv()
 
@@ -42,15 +51,129 @@ class PipelineOrchestrator:
         self.store.save_project(project)
         return project
 
-    def approve(self, project_id: str, stage: PipelineStage, approved_by: str = "operator", notes: str | None = None) -> MigrationProject:
+    def approve(
+        self,
+        project_id: str,
+        stage: PipelineStage,
+        approved_by: str = "operator",
+        notes: str | None = None,
+        reason_code: str | None = None,
+        reason_text: str | None = None,
+        allow_low_confidence: bool = False,
+    ) -> MigrationProject:
         project = self.store.load_project(project_id)
-        gate = project.gate_for(stage)
-        if gate is None:
+        if project.gate_for(stage) is None:
             raise ValueError(f"No approval gate for stage {stage.value}")
-        gate.approved = True
-        gate.approved_at = datetime.now(timezone.utc)
-        gate.approved_by = approved_by
-        gate.notes = notes
+
+        blocked, message = confidence_blocks_approval(project, stage)
+        if blocked and not allow_low_confidence:
+            raise ValueError(message)
+
+        record_gate_decision(
+            project,
+            stage,
+            GateDecisionAction.APPROVE,
+            approved_by,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            notes=notes,
+        )
+        self.store.save_project(project)
+        return project
+
+    def reject(
+        self,
+        project_id: str,
+        stage: PipelineStage,
+        rejected_by: str,
+        reason_code: str,
+        reason_text: str,
+        notes: str | None = None,
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        if project.gate_for(stage) is None:
+            raise ValueError(f"No approval gate for stage {stage.value}")
+        record_gate_decision(
+            project,
+            stage,
+            GateDecisionAction.REJECT,
+            rejected_by,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            notes=notes,
+        )
+        self.store.save_project(project)
+        return project
+
+    def waive(
+        self,
+        project_id: str,
+        stage: PipelineStage,
+        waived_by: str,
+        reason_code: str,
+        reason_text: str,
+        notes: str | None = None,
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        if project.gate_for(stage) is None:
+            raise ValueError(f"No approval gate for stage {stage.value}")
+        record_gate_decision(
+            project,
+            stage,
+            GateDecisionAction.WAIVE,
+            waived_by,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            notes=notes,
+        )
+        self.store.save_project(project)
+        return project
+
+    def modify_adrs(
+        self,
+        project_id: str,
+        modified_by: str,
+        reason_code: str,
+        reason_text: str,
+        adrs: list[dict[str, Any]] | None = None,
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        save_adr_version(project, reason_text, modified_by)
+        if adrs is not None:
+            project.metadata["adrs"] = adrs
+        record_gate_decision(
+            project,
+            PipelineStage.RECOMMEND,
+            GateDecisionAction.MODIFY,
+            modified_by,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            notes="ADR set modified — re-approval required",
+        )
+        self.store.save_artifact(project, PipelineStage.RECOMMEND, "adrs", project.metadata["adrs"], extension="yaml")
+        self.store.save_project(project)
+        return project
+
+    def request_evidence(
+        self,
+        project_id: str,
+        description: str,
+        requested_by: str = "operator",
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        task = add_evidence_gap_playbook_task(project, description)
+        self.store.save_project(project)
+        record_gate_decision(
+            project,
+            PipelineStage.HYPOTHESIZE,
+            GateDecisionAction.MODIFY,
+            requested_by,
+            reason_code="insufficient_evidence",
+            reason_text=description,
+            notes="Evidence gap task added to playbook",
+            item_id=task["id"],
+            item_type="evidence_gap",
+        )
         self.store.save_project(project)
         return project
 
@@ -133,10 +256,30 @@ class PipelineOrchestrator:
 
     def _run_hypothesize(self, project: MigrationProject) -> dict[str, Any]:
         diagnosis = project.metadata.get("diagnosis") or diagnose(project.evidence, project.landscape)
-        hypotheses = hypothesize(diagnosis, project.landscape, project.evidence)
+        use_multi = os.getenv("MULTI_LLM", "").lower() in {"1", "true", "yes"}
+        if use_multi:
+            from migrate_framework.analysis.hypothesize import _normalize_hypothesis
+            from migrate_framework.analysis.llm_providers import configured_providers, run_multi_provider_hypotheses
+
+            if configured_providers():
+                multi = run_multi_provider_hypotheses(diagnosis, project.landscape)
+                project.metadata["hypotheses_multi"] = multi
+                raw = multi.get("synthesized", {}).get("hypotheses", [])
+                hypotheses = [_normalize_hypothesis(h) for h in raw]
+            else:
+                hypotheses = hypothesize(diagnosis, project.landscape, project.evidence)
+        else:
+            hypotheses = hypothesize(diagnosis, project.landscape, project.evidence)
         project.evidence.extend(hypotheses_to_evidence(hypotheses))
         self.store.save_artifact(project, PipelineStage.HYPOTHESIZE, "hypotheses", hypotheses)
         project.metadata["hypotheses"] = hypotheses
+        if project.metadata.get("hypotheses_multi"):
+            self.store.save_artifact(
+                project,
+                PipelineStage.HYPOTHESIZE,
+                "hypotheses-multi",
+                project.metadata["hypotheses_multi"],
+            )
         return {"hypothesis_count": len(hypotheses), "source": hypotheses[0].get("source") if hypotheses else "none"}
 
     def _run_recommend(self, project: MigrationProject) -> dict[str, Any]:
@@ -146,7 +289,11 @@ class PipelineOrchestrator:
         project.evidence.extend(adrs_to_evidence(adrs))
         self.store.save_artifact(project, PipelineStage.RECOMMEND, "adrs", adrs, extension="yaml")
         project.metadata["adrs"] = adrs
-        return {"adr_count": len(adrs)}
+        matrix = build_capability_matrix(project)
+        project.metadata["capability_matrix"] = matrix
+        project.metadata["capability_matrix_summary"] = matrix_summary(matrix)
+        self.store.save_artifact(project, PipelineStage.RECOMMEND, "capability-matrix", matrix)
+        return {"adr_count": len(adrs), "vv_coverage_pct": matrix_summary(matrix).get("coverage_pct")}
 
     def _run_plan(self, project: MigrationProject) -> dict[str, Any]:
         adrs = project.metadata.get("adrs", [])

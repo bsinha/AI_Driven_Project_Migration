@@ -41,6 +41,8 @@ Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → *
 
 - [Problem statement](docs/problem-statement.md)
 - [Framework methodology](docs/framework-methodology.md)
+- [Operating model](docs/operating-model.md) — deterministic vs AI, iteration, customer story
+- [Complexity matrix](docs/migration-complexity-matrix.md) — exception scenarios & POC coverage
 - [POC demo script](docs/poc-demo-script.md)
 
 

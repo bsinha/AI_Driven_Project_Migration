@@ -10,13 +10,16 @@ from dotenv import load_dotenv
 from migrate_framework.models import (
     PIPELINE_STAGE_ORDER,
     ApprovalGate,
+    GateDecisionStatus,
     MigrationProject,
     PipelineStage,
 )
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.ui.artifact_views import STAGE_TITLES, render_artifacts, render_stage_artifacts
+from migrate_framework.ui.governance_panel import render_governance_panel, render_role_selector, role_allows
 from migrate_framework.ui.playbook_execution import render_playbook_execution
+from migrate_framework.pipeline.governance import stage_summary_metrics
 from migrate_framework.reporting.pipeline_report import (
     generate_html_report,
     generate_markdown_report,
@@ -49,12 +52,19 @@ def _approval_gates_for_display(project: MigrationProject) -> list[ApprovalGate]
 
 def _gate_status_display(gate: ApprovalGate, completed: set[PipelineStage]) -> tuple[str, str]:
     """Return (markdown status label, streamlit help tooltip)."""
+    if gate.status == GateDecisionStatus.REJECTED:
+        return ":red[Rejected]", gate.reason_text or "Rejected — pipeline blocked until rework and re-approval."
+    if gate.status == GateDecisionStatus.MODIFIED:
+        return ":orange[Modified — pending re-approval]", gate.reason_text or "Artifacts modified; approve after review."
+    if gate.status == GateDecisionStatus.WAIVED:
+        return ":blue[Waived (exception)]", gate.reason_text or "Formal waiver recorded; pipeline may proceed."
+
     if not gate.required:
-        if gate.approved:
+        if gate.is_cleared():
             return ":green[Approved (optional)]", "Optional gate — formal sign-off recorded."
         return ":blue[Optional — not required]", "This stage does not block the pipeline; approval is optional."
 
-    if gate.approved:
+    if gate.is_cleared():
         return ":green[Approved]", "Human sign-off recorded for this required stage."
 
     if gate.stage in completed:
@@ -170,6 +180,12 @@ def _render_stage_content(
         st.info("Not started")
 
     _render_stage_gate(orch, project, stage_key, completed)
+
+    metrics = stage_summary_metrics(project, PipelineStage(stage_key))
+    if metrics:
+        st.caption("Stage analytics")
+        st.json(metrics)
+
     render_stage_artifacts(stage_key, project.metadata.get("artifact_index", {}))
 
 
@@ -180,6 +196,8 @@ def _render_all_content(project: MigrationProject) -> None:
 
 st.set_page_config(page_title="Migrate Framework", layout="wide")
 _init_session_state()
+
+ui_role = render_role_selector()
 
 st.title("Microservice → DDD Migration Framework")
 
@@ -287,7 +305,10 @@ if project:
                         st.rerun()
 
     st.divider()
-    if PipelineStage.PLAYBOOK in completed:
+    render_governance_panel(orch, project, ui_role)
+
+    st.divider()
+    if role_allows(ui_role, "playbook") and PipelineStage.PLAYBOOK in completed:
         render_playbook_execution(project, store)
 
     st.divider()

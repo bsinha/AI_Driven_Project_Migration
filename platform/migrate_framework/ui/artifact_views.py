@@ -249,10 +249,26 @@ def render_hypotheses(data: list[dict[str, Any]]) -> None:
 def render_adrs(data: list[dict[str, Any]]) -> None:
     for adr in data:
         confidence = adr.get("confidence")
+        mandatory = adr.get("mandatory", False)
         title = adr.get("title") or f"ADR-{adr.get('number', '?')}"
-        label = f"{title} ({confidence:.0%})" if confidence is not None else title
+        badge = " **mandatory**" if mandatory else " optional"
+        label = f"{title}{badge}"
+        if confidence is not None:
+            label += f" ({confidence:.0%})"
         with st.expander(label):
-            st.markdown(f"**Status:** {adr.get('status', 'proposed')} · **Context:** {adr.get('target_context', '—')}")
+            st.markdown(
+                f"**Status:** {adr.get('status', 'proposed')} · "
+                f"**Context:** {adr.get('target_context', '—')} · "
+                f"**Blocks gate:** {adr.get('blocks_gate', mandatory)}"
+            )
+            if adr.get("as_is_summary"):
+                st.markdown(f"**AS-IS:** {adr.get('as_is_summary')}")
+            if adr.get("to_be_preview"):
+                st.markdown(f"**TO-BE:** {adr.get('to_be_preview')}")
+            if adr.get("benefit_if_accepted"):
+                st.success(f"Benefit if accepted: {adr.get('benefit_if_accepted')}")
+            if adr.get("risk_if_rejected"):
+                st.warning(f"Risk if rejected: {adr.get('risk_if_rejected')}")
             st.write("**Decision**")
             st.write(adr.get("decision", ""))
             consequences = adr.get("consequences") or []

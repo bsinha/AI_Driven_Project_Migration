@@ -34,6 +34,38 @@ class PipelineStage(str, Enum):
 
 PIPELINE_STAGE_ORDER: list[PipelineStage] = list(PipelineStage)
 
+CONFIDENCE_APPROVAL_THRESHOLD = 0.7
+ESCALATION_REJECTION_THRESHOLD = 3
+
+GATE_REASON_CODES: list[str] = [
+    "insufficient_evidence",
+    "wrong_boundary",
+    "risk_too_high",
+    "sme_disagreement",
+    "scope_defer",
+    "executive_waiver",
+    "low_confidence",
+    "other",
+]
+
+
+class GateDecisionStatus(str, Enum):
+    """Human gate decision lifecycle."""
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    MODIFIED = "modified"
+    WAIVED = "waived"
+
+
+class GateDecisionAction(str, Enum):
+    APPROVE = "approve"
+    REJECT = "reject"
+    MODIFY = "modify"
+    WAIVE = "waive"
+    RESET = "reset"
+
 
 class EvidenceRelation(BaseModel):
     relation: str
@@ -106,13 +138,53 @@ class StageRun(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
 
 
+class GateDecisionRecord(BaseModel):
+    """Immutable audit entry for gate and governance actions."""
+
+    id: str = Field(default_factory=lambda: new_id("dec"))
+    stage: PipelineStage
+    action: GateDecisionAction
+    decision_by: str
+    decision_at: datetime = Field(default_factory=_utc_now)
+    reason_code: str | None = None
+    reason_text: str | None = None
+    notes: str | None = None
+    iteration_round: int = 0
+    item_id: str | None = None
+    item_type: str | None = None
+
+
+class WaiverRecord(BaseModel):
+    """Formal exception allowing progress despite a mandatory item."""
+
+    id: str = Field(default_factory=lambda: new_id("wvr"))
+    item_id: str
+    item_type: str
+    title: str
+    reason_code: str
+    reason_text: str
+    waived_by: str
+    waived_at: datetime = Field(default_factory=_utc_now)
+    stage: PipelineStage | None = None
+
+
 class ApprovalGate(BaseModel):
     stage: PipelineStage
     required: bool = True
     approved: bool = False
+    status: GateDecisionStatus = GateDecisionStatus.PENDING
     approved_at: datetime | None = None
     approved_by: str | None = None
     notes: str | None = None
+    reason_code: str | None = None
+    reason_text: str | None = None
+    iteration_round: int = 0
+
+    def is_cleared(self) -> bool:
+        """Gate allows pipeline progression (approved or formally waived)."""
+        if self.status in {GateDecisionStatus.APPROVED, GateDecisionStatus.WAIVED}:
+            return True
+        return self.approved and self.status == GateDecisionStatus.PENDING
 
 
 class MigrationProject(BaseModel):
@@ -142,7 +214,18 @@ class MigrationProject(BaseModel):
         gate = self.gate_for(stage)
         if gate is None or not gate.required:
             return True
-        return gate.approved
+        return gate.is_cleared()
+
+    def decision_log(self) -> list[GateDecisionRecord]:
+        raw = self.metadata.get("decision_log", [])
+        return [GateDecisionRecord.model_validate(entry) for entry in raw]
+
+    def waiver_registry(self) -> list[WaiverRecord]:
+        raw = self.metadata.get("waiver_registry", [])
+        return [WaiverRecord.model_validate(entry) for entry in raw]
+
+    def governance_meta(self) -> dict[str, Any]:
+        return self.metadata.setdefault("governance", {})
 
     @staticmethod
     def default_gates() -> list[ApprovalGate]:

@@ -14,7 +14,21 @@ def hypothesize(
     landscape: Landscape | None,
     evidence: list[EvidenceItem] | None = None,
 ) -> list[dict[str, Any]]:
-    """Generate migration hypotheses using OpenAI or deterministic mock fallback."""
+    """Generate migration hypotheses using configured LLM(s) or deterministic mock fallback."""
+    _ = evidence
+    use_multi = os.getenv("MULTI_LLM", "").lower() in {"1", "true", "yes"}
+    if use_multi:
+        from migrate_framework.analysis.llm_providers import configured_providers, run_multi_provider_hypotheses
+
+        providers = configured_providers()
+        if providers:
+            try:
+                multi = run_multi_provider_hypotheses(diagnosis, landscape, providers)
+                hyps = multi.get("synthesized", {}).get("hypotheses", [])
+                return [_normalize_hypothesis(h) for h in hyps]
+            except Exception as exc:
+                return _mock_hypotheses(diagnosis, landscape, fallback_reason=str(exc))
+
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if api_key:
         try:

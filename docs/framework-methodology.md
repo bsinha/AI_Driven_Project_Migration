@@ -1,5 +1,7 @@
 # Framework Methodology — 8-Stage Pipeline
 
+See also: [Operating model](operating-model.md) (iteration, deterministic vs AI, rejection paths) · [Complexity matrix](migration-complexity-matrix.md) (exception scenarios).
+
 ## Stages
 
 | # | Stage | Actor | Output |
@@ -17,6 +19,14 @@
 
 - **After Recommend (Stage 6):** Approve / reject / modify target architecture
 - **After Plan (Stage 7):** Approve migration plan before playbook
+
+Rejection = withhold approval and re-run upstream stages (e.g. re-hypothesize, edit ADRs, re-plan). See [operating model — re-entry paths](operating-model.md#re-entry-and-rejection-paths).
+
+## Iteration
+
+- **Within a phase:** rejected hypothesis → refine evidence → re-hypothesize → recommend again
+- **Across phases:** complete Phase N playbook → validate (re-diagnose) → Phase N+1 pipeline run
+- **Feedback loop:** validation failure → re-diagnose or re-plan before next cutover
 
 ## Onboarding a new codebase
 
