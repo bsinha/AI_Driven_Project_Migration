@@ -17,7 +17,8 @@ from migrate_framework.ingestion.discover import discover_project
 from migrate_framework.ingestion.registry import DEFAULT_REGISTRY
 from migrate_framework.migration.playbook import build_playbook, playbook_to_evidence
 from migrate_framework.migration.planner import phases_to_evidence, plan_migration
-from migrate_framework.models import GateDecisionAction, MigrationProject, PIPELINE_STAGE_ORDER, PipelineStage, StageRun
+from migrate_framework.governance_enums import GateDecisionAction
+from migrate_framework.models import MigrationProject, PIPELINE_STAGE_ORDER, PipelineStage, StageRun
 from migrate_framework.pipeline.governance import (
     add_evidence_gap_playbook_task,
     confidence_blocks_approval,

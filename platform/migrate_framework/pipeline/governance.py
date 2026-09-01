@@ -6,14 +6,16 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from migrate_framework.models import (
+from migrate_framework.governance_enums import (
     CONFIDENCE_APPROVAL_THRESHOLD,
     ESCALATION_REJECTION_THRESHOLD,
     GATE_REASON_CODES,
-    ApprovalGate,
     GateDecisionAction,
-    GateDecisionRecord,
     GateDecisionStatus,
+)
+from migrate_framework.models import (
+    ApprovalGate,
+    GateDecisionRecord,
     MigrationProject,
     PipelineStage,
     WaiverRecord,

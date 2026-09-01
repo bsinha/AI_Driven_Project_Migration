@@ -9,7 +9,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from migrate_framework.models import GATE_REASON_CODES, PIPELINE_STAGE_ORDER, PipelineStage
+from migrate_framework.governance_enums import GATE_REASON_CODES
+from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.reporting.pipeline_report import (

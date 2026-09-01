@@ -7,10 +7,10 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+from migrate_framework.governance_enums import GateDecisionStatus
 from migrate_framework.models import (
     PIPELINE_STAGE_ORDER,
     ApprovalGate,
-    GateDecisionStatus,
     MigrationProject,
     PipelineStage,
 )

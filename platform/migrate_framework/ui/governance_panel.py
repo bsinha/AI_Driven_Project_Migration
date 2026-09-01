@@ -6,7 +6,8 @@ from typing import Any
 
 import streamlit as st
 
-from migrate_framework.models import GATE_REASON_CODES, GateDecisionStatus, MigrationProject, PipelineStage
+from migrate_framework.governance_enums import GATE_REASON_CODES, GateDecisionStatus
+from migrate_framework.models import MigrationProject, PipelineStage
 from migrate_framework.pipeline.governance import (
     confidence_threshold,
     needs_escalation,

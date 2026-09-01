@@ -1,13 +1,13 @@
 """Tests for governance, V&V, and enriched ADRs."""
 
 from migrate_framework.analysis.recommend import recommend
-from migrate_framework.models import GateDecisionStatus, MigrationProject, PipelineStage
+from migrate_framework.governance_enums import GateDecisionStatus
+from migrate_framework.models import GateDecisionAction, MigrationProject, PipelineStage
 from migrate_framework.pipeline.governance import (
     record_gate_decision,
     rejection_count,
     update_escalation,
 )
-from migrate_framework.models import GateDecisionAction
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.vv.capability_matrix import build_capability_matrix, matrix_summary
 
