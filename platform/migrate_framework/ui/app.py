@@ -7,7 +7,6 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from migrate_framework.governance_enums import GateDecisionStatus
 from migrate_framework.models import (
     PIPELINE_STAGE_ORDER,
     ApprovalGate,
@@ -17,6 +16,7 @@ from migrate_framework.models import (
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.ui.artifact_views import STAGE_TITLES, render_artifacts, render_stage_artifacts
+from migrate_framework.ui.gate_display import approval_gates_for_display, gate_status_display
 from migrate_framework.ui.governance_panel import render_governance_panel, render_role_selector, role_allows
 from migrate_framework.ui.playbook_execution import render_playbook_execution
 from migrate_framework.pipeline.governance import stage_summary_metrics
@@ -44,33 +44,8 @@ def _completed_stages(project: MigrationProject) -> set[PipelineStage]:
     return {r.stage for r in project.stage_runs if r.status == "completed"}
 
 
-def _approval_gates_for_display(project: MigrationProject) -> list[ApprovalGate]:
-    if project.approval_gates:
-        return project.approval_gates
-    return MigrationProject.default_gates()
-
-
 def _gate_status_display(gate: ApprovalGate, completed: set[PipelineStage]) -> tuple[str, str]:
-    """Return (markdown status label, streamlit help tooltip)."""
-    if gate.status == GateDecisionStatus.REJECTED:
-        return ":red[Rejected]", gate.reason_text or "Rejected — pipeline blocked until rework and re-approval."
-    if gate.status == GateDecisionStatus.MODIFIED:
-        return ":orange[Modified — pending re-approval]", gate.reason_text or "Artifacts modified; approve after review."
-    if gate.status == GateDecisionStatus.WAIVED:
-        return ":blue[Waived (exception)]", gate.reason_text or "Formal waiver recorded; pipeline may proceed."
-
-    if not gate.required:
-        if gate.is_cleared():
-            return ":green[Approved (optional)]", "Optional gate — formal sign-off recorded."
-        return ":blue[Optional — not required]", "This stage does not block the pipeline; approval is optional."
-
-    if gate.is_cleared():
-        return ":green[Approved]", "Human sign-off recorded for this required stage."
-
-    if gate.stage in completed:
-        return ":orange[Pending sign-off]", "Stage finished; architect approval is still required."
-
-    return ":orange[Pending]", "Approval required before later required stages can proceed."
+    return gate_status_display(gate, completed)
 
 
 def _init_session_state() -> None:
@@ -136,7 +111,7 @@ def _render_stage_gate(
     stage = PipelineStage(stage_key)
     gate = project.gate_for(stage)
     if gate is None:
-        for candidate in _approval_gates_for_display(project):
+        for candidate in approval_gates_for_display(project):
             if candidate.stage == stage:
                 gate = candidate
                 break
@@ -151,8 +126,12 @@ def _render_stage_gate(
     with c2:
         st.markdown(status_label, help=status_help)
     with c3:
-        if gate.required and not gate.approved:
+        if gate.required and not gate.is_cleared():
             if st.button(f"Approve {stage.value}", key=f"approve-stage-panel-{stage.value}"):
+                orch.approve(project.id, stage)
+                st.rerun()
+        elif not gate.required and stage in completed and not gate.is_cleared():
+            if st.button(f"Record sign-off ({stage.value})", key=f"approve-optional-{stage.value}"):
                 orch.approve(project.id, stage)
                 st.rerun()
 
@@ -287,25 +266,21 @@ if project:
 
     with st.expander("Approval gates", expanded=False):
         st.caption(
-            "Pipeline progress shows whether a stage ran; gates record human sign-off. "
-            "Optional gates (discover, graph, playbook) never block the pipeline."
+            "Pipeline progress (✓) means the stage **ran**. "
+            "**Pending sign-off** means a required human decision is still needed before later stages. "
+            "Review stage output in **Governance → Approval gates** below before Approve / Reject / Waive."
         )
-        for gate in _approval_gates_for_display(project):
-            c1, c2, c3 = st.columns([2, 2, 1])
+        for gate in approval_gates_for_display(project):
+            c1, c2 = st.columns([2, 3])
             with c1:
                 role = "required" if gate.required else "optional"
                 st.write(f"**{gate.stage.value}** ({role})")
             with c2:
                 status_label, status_help = _gate_status_display(gate, completed)
                 st.markdown(status_label, help=status_help)
-            with c3:
-                if gate.required and not gate.approved:
-                    if st.button(f"Approve {gate.stage.value}", key=f"approve-{gate.stage.value}"):
-                        orch.approve(project.id, gate.stage)
-                        st.rerun()
 
     st.divider()
-    render_governance_panel(orch, project, ui_role)
+    render_governance_panel(orch, project, ui_role, completed)
 
     st.divider()
     if role_allows(ui_role, "playbook") and PipelineStage.PLAYBOOK in completed:

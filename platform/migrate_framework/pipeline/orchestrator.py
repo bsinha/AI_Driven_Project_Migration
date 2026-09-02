@@ -26,6 +26,7 @@ from migrate_framework.pipeline.governance import (
     save_adr_version,
 )
 from migrate_framework.pipeline.project_store import ProjectStore
+from migrate_framework.reporting.ingest_evidence import summarize_ingest_evidence
 from migrate_framework.vv.capability_matrix import build_capability_matrix, matrix_summary
 
 load_dotenv()
@@ -233,7 +234,10 @@ class PipelineOrchestrator:
         project.evidence = evidence
         project.tech_stack = profile
         self.store.save_evidence(project, PipelineStage.INGEST)
-        summary = {"evidence_count": len(evidence), "adapters_used": profile.primary_stack()}
+        summary = summarize_ingest_evidence(
+            [e.model_dump(mode="json") for e in evidence],
+            adapters_used=profile.primary_stack(),
+        )
         self.store.save_artifact(project, PipelineStage.INGEST, "ingest-summary", summary)
         return summary
 

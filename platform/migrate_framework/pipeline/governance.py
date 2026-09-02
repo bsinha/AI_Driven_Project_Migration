@@ -88,6 +88,9 @@ def record_gate_decision(
         if reason_code and reason_code not in GATE_REASON_CODES:
             raise ValueError(f"Unknown reason_code: {reason_code}")
 
+    if action == GateDecisionAction.APPROVE and reason_code and reason_code not in GATE_REASON_CODES:
+        raise ValueError(f"Unknown reason_code: {reason_code}")
+
     if action == GateDecisionAction.APPROVE:
         _apply_gate_status(gate, GateDecisionStatus.APPROVED, decision_by, reason_code, reason_text, notes)
     elif action == GateDecisionAction.REJECT:

@@ -6,7 +6,6 @@ from typing import Any
 
 import streamlit as st
 
-from migrate_framework.governance_enums import GATE_REASON_CODES, GateDecisionStatus
 from migrate_framework.models import MigrationProject, PipelineStage
 from migrate_framework.pipeline.governance import (
     confidence_threshold,
@@ -15,6 +14,8 @@ from migrate_framework.pipeline.governance import (
 )
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.reporting.pipeline_report import generate_markdown_report
+from migrate_framework.ui.gate_display import gate_expander_title, gate_status_display
+from migrate_framework.ui.gate_review import reason_codes_for_action, render_gate_review_context
 
 
 ROLE_VIEWS: dict[str, list[str]] = {
@@ -97,28 +98,54 @@ def _gate_action_form(
     action: str,
 ) -> None:
     prefix = f"{action}-{stage.value}"
+    codes = reason_codes_for_action(action)
     with st.form(prefix):
-        reason_code = st.selectbox("Reason code", GATE_REASON_CODES, key=f"{prefix}-code")
-        reason_text = st.text_area(
-            "Reason (required for reject / waive / modify)",
-            key=f"{prefix}-text",
-        )
+        if action == "approve":
+            st.caption("Confirm the stage output is acceptable to proceed.")
+            reason_code = st.selectbox("Acceptance reason", codes, key=f"{prefix}-code")
+            reason_text = st.text_area(
+                "Acceptance rationale (optional)",
+                placeholder="e.g. Evidence coverage is sufficient for graph and diagnosis.",
+                key=f"{prefix}-text",
+            )
+        elif action == "reject":
+            st.caption("Rejection blocks the pipeline until the stage is reworked and re-approved.")
+            reason_code = st.selectbox("Rejection reason", codes, key=f"{prefix}-code")
+            reason_text = st.text_area(
+                "Rejection detail (required)",
+                placeholder="What is wrong and what should be fixed?",
+                key=f"{prefix}-text",
+            )
+        else:
+            st.caption("Waive records a formal exception so the pipeline may proceed.")
+            reason_code = st.selectbox("Waiver reason", codes, key=f"{prefix}-code")
+            reason_text = st.text_area(
+                "Waiver detail (required)",
+                placeholder="Who accepted the risk and why?",
+                key=f"{prefix}-text",
+            )
         notes = st.text_input("Notes (optional)", key=f"{prefix}-notes")
         submitted = st.form_submit_button(action.title())
 
     if submitted:
         try:
             if action == "approve":
+                if reason_code == "other" and not (reason_text or "").strip():
+                    st.error("Provide acceptance rationale when reason is 'other'.")
+                    return
                 orch.approve(
                     project.id,
                     stage,
                     approved_by=st.session_state.get("decision_by", "operator"),
                     notes=notes or None,
-                    reason_code=reason_code if reason_code != "other" else None,
-                    reason_text=reason_text or None,
+                    reason_code=reason_code,
+                    reason_text=(reason_text or None) if reason_text else None,
                     allow_low_confidence=st.session_state.get("allow_low_confidence", False),
                 )
             elif action == "reject":
+                if not (reason_text or "").strip():
+                    st.error("Rejection detail is required.")
+                    return
                 orch.reject(
                     project.id,
                     stage,
@@ -128,6 +155,9 @@ def _gate_action_form(
                     notes=notes or None,
                 )
             elif action == "waive":
+                if not (reason_text or "").strip():
+                    st.error("Waiver detail is required.")
+                    return
                 orch.waive(
                     project.id,
                     stage,
@@ -142,11 +172,16 @@ def _gate_action_form(
             st.error(str(exc))
 
 
-def render_gate_controls(orch: PipelineOrchestrator, project: MigrationProject) -> None:
+def render_gate_controls(
+    orch: PipelineOrchestrator,
+    project: MigrationProject,
+    completed: set[PipelineStage],
+) -> None:
     st.subheader("Approval gates")
     st.caption(
         f"Confidence approval threshold: {confidence_threshold():.0%}. "
-        "Reject and waive require a reason. Pipeline blocks until required gates are approved or waived."
+        "Reject and waive require a reason. Pipeline blocks until required gates are approved or waived. "
+        "Optional gates (discover, graph, playbook) never block progress."
     )
 
     st.session_state.decision_by = st.text_input("Decision by (name)", value=st.session_state.get("decision_by", "architect"))
@@ -156,18 +191,36 @@ def render_gate_controls(orch: PipelineOrchestrator, project: MigrationProject) 
     )
 
     for gate in project.approval_gates:
-        with st.expander(f"{gate.stage.value} · {gate.status.value} · round {gate.iteration_round}", expanded=False):
-            st.write(f"Required: **{gate.required}** · Approved flag: **{gate.approved}**")
+        needs_signoff = gate.required and gate.stage in completed and not gate.is_cleared()
+        title = gate_expander_title(gate, completed)
+        with st.expander(title, expanded=needs_signoff):
+            label, help_text = gate_status_display(gate, completed)
+            st.markdown(label, help=help_text)
             if gate.reason_text:
                 st.warning(gate.reason_text)
+
+            if gate.stage in completed:
+                render_gate_review_context(project, gate.stage)
+            elif gate.required:
+                st.info("Run this pipeline stage before requesting sign-off.")
+
             if gate.required and not gate.is_cleared():
-                tab_a, tab_r, tab_w = st.tabs(["Approve", "Reject", "Waive"])
-                with tab_a:
-                    _gate_action_form(orch, project, gate.stage, "approve")
-                with tab_r:
-                    _gate_action_form(orch, project, gate.stage, "reject")
-                with tab_w:
-                    _gate_action_form(orch, project, gate.stage, "waive")
+                if gate.stage not in completed:
+                    st.warning("Stage not completed yet — run the pipeline stage first.")
+                else:
+                    st.markdown("---")
+                    st.markdown("**Record decision**")
+                    tab_a, tab_r, tab_w = st.tabs(["Approve", "Reject", "Waive"])
+                    with tab_a:
+                        _gate_action_form(orch, project, gate.stage, "approve")
+                    with tab_r:
+                        _gate_action_form(orch, project, gate.stage, "reject")
+                    with tab_w:
+                        _gate_action_form(orch, project, gate.stage, "waive")
+            elif not gate.required and gate.stage in completed and not gate.is_cleared():
+                if st.button("Record optional sign-off", key=f"gov-signoff-{gate.stage.value}"):
+                    orch.approve(project.id, gate.stage)
+                    st.rerun()
 
 
 def render_as_is_to_be(project: MigrationProject) -> None:
@@ -225,7 +278,25 @@ def render_embedded_report(project: MigrationProject) -> None:
     st.markdown(md[:12000] + ("\n\n…" if len(md) > 12000 else ""))
 
 
+def _playbook_generated(project: MigrationProject) -> bool:
+    """True once the playbook stage has run or playbook tasks exist in metadata."""
+    if project.metadata.get("playbook"):
+        return True
+    return any(
+        run.stage == PipelineStage.PLAYBOOK and run.status == "completed"
+        for run in project.stage_runs
+    )
+
+
 def render_evidence_gap_request(orch: PipelineOrchestrator, project: MigrationProject) -> None:
+    if not _playbook_generated(project):
+        st.caption(
+            "Evidence-gap tasks are added to the **playbook** backlog. "
+            "Run the **playbook** stage first, then request SME input here."
+        )
+        return
+
+    st.subheader("Request SME evidence")
     with st.form("evidence-gap"):
         description = st.text_area("Describe missing evidence or SME input needed")
         if st.form_submit_button("Add evidence-gap playbook task"):
@@ -237,14 +308,19 @@ def render_evidence_gap_request(orch: PipelineOrchestrator, project: MigrationPr
                 st.error("Description required.")
 
 
-def render_governance_panel(orch: PipelineOrchestrator, project: MigrationProject, role: str) -> None:
+def render_governance_panel(
+    orch: PipelineOrchestrator,
+    project: MigrationProject,
+    role: str,
+    completed: set[PipelineStage],
+) -> None:
     render_escalation_banner(project)
 
     if role_allows(role, "governance"):
         render_evidence_gap_request(orch, project)
 
     if role_allows(role, "gates"):
-        render_gate_controls(orch, project)
+        render_gate_controls(orch, project, completed)
 
     render_decision_log(project)
     render_waiver_registry(project)
