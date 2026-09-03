@@ -41,6 +41,41 @@ def test_cytoscape_empty_graph_message() -> None:
     assert "No deployable services" in html
 
 
+def test_cytoscape_embeds_client_theme_resolver(graph_payload: dict) -> None:
+    html = build_cytoscape_service_graph_html(graph_payload, chart_id="theme-graph")
+    assert "_resolveTheme" in html
+    assert '"canvas_bg"' in html
+    assert "#fafafa" in html
+    assert "#262730" in html
+
+
+def test_cytoscape_dark_theme_background() -> None:
+    html = build_cytoscape_service_graph_html(
+        {
+            "nodes": [
+                {
+                    "id": "a-service",
+                    "kind": "service",
+                    "attributes": {"evidence_type": "service", "port": 8080},
+                }
+            ],
+            "edges": [],
+        },
+        chart_id="dark-graph",
+        theme_type="dark",
+    )
+    assert "#262730" in html
+
+
+def test_graph_theme_colors_dark() -> None:
+    from migrate_framework.ui.interactive_graphs import graph_theme_colors
+
+    dark = graph_theme_colors("dark")
+    assert dark["canvas_bg"] == "#262730"
+    html = build_cytoscape_service_graph_html({"nodes": [], "edges": []})
+    assert "No deployable services" in html
+
+
 def test_radial_mindmap_contains_context_and_services() -> None:
     contexts = [
         {

@@ -13,6 +13,69 @@ from migrate_framework.ui.visualizations import (
     _service_color,
 )
 
+_GRAPH_THEME: dict[str, dict[str, str]] = {
+    "light": {
+        "canvas_bg": "#fafafa",
+        "border": "#e0e0e0",
+        "edge": "#888",
+        "arrow": "#888",
+        "node_border": "#333",
+        "node_label": "#262730",
+        "selected_border": "#2C3E50",
+    },
+    "dark": {
+        "canvas_bg": "#262730",
+        "border": "#464646",
+        "edge": "#9aa0a6",
+        "arrow": "#9aa0a6",
+        "node_border": "#bdc1c6",
+        "node_label": "#fafafa",
+        "selected_border": "#fafafa",
+    },
+}
+
+
+def graph_theme_colors(theme_type: str | None = None) -> dict[str, str]:
+    """Resolve canvas/label colors from Streamlit theme type (light/dark)."""
+    if theme_type == "dark":
+        return _GRAPH_THEME["dark"]
+    return _GRAPH_THEME["light"]
+
+
+def _cytoscape_theme_script(render_id: str) -> str:
+    """Client-side theme: read parent app background (iframe bg is not reliable)."""
+    themes_json = json.dumps(_GRAPH_THEME)
+    return f"""
+  const THEMES = {themes_json};
+  function _parseRgb(color) {{
+    const m = String(color).match(/[\\d.]+/g);
+    if (!m || m.length < 3) return null;
+    return {{ r: Number(m[0]), g: Number(m[1]), b: Number(m[2]) }};
+  }}
+  function _isDarkBackground(color) {{
+    const rgb = _parseRgb(color);
+    if (!rgb) return false;
+    const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    return lum < 0.45;
+  }}
+  function _resolveTheme() {{
+    try {{
+      const parentBody = window.parent && window.parent.document && window.parent.document.body;
+      if (parentBody) {{
+        const parentBg = getComputedStyle(parentBody).backgroundColor;
+        return _isDarkBackground(parentBg) ? THEMES.dark : THEMES.light;
+      }}
+    }} catch (err) {{
+      /* parent access blocked — default to light canvas */
+    }}
+    return THEMES.light;
+  }}
+  const theme = _resolveTheme();
+  const container = document.getElementById('{render_id}');
+  container.style.background = theme.canvas_bg;
+  container.style.borderColor = theme.border;
+"""
+
 
 def interactive_graph_html(chart_id: str, html_content: str, height: int = 480) -> None:
     """Render raw HTML/JS in Streamlit with a unique wrapper id."""
@@ -76,9 +139,12 @@ def build_cytoscape_service_graph_html(
     focus_services: set[str] | None = None,
     highlight_services: set[str] | None = None,
     height: int = 480,
+    theme_type: str | None = None,
 ) -> str:
-    """Cytoscape.js service dependency graph with physics layout and risk pulse."""
+    """Cytoscape.js service dependency graph with physics layout."""
     highlight_services = highlight_services or set()
+    # theme_type kept for tests; runtime theme resolved in embedded JS from parent app.
+    _ = theme_type
     cy_nodes, cy_edges = _service_graph_elements(
         graph_payload,
         ingest_summary,
@@ -93,6 +159,10 @@ def build_cytoscape_service_graph_html(
     elements = json.dumps(cy_nodes + cy_edges)
     return f"""
 <style>
+  html, body {{
+    margin: 0;
+    background: transparent;
+  }}
   #{render_id} {{
     width: 100%;
     height: {height}px;
@@ -100,18 +170,15 @@ def build_cytoscape_service_graph_html(
     border-radius: 6px;
     background: #fafafa;
   }}
-  @keyframes ctx-pulse {{
-    0%, 100% {{ box-shadow: 0 0 0 0 rgba(228, 87, 86, 0.7); }}
-    50% {{ box-shadow: 0 0 0 10px rgba(228, 87, 86, 0); }}
-  }}
 </style>
 <div id="{render_id}"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
 <script>
 (function() {{
+{_cytoscape_theme_script(render_id)}
   const elements = {elements};
   const cy = cytoscape({{
-    container: document.getElementById('{render_id}'),
+    container: container,
     elements: elements,
     style: [
       {{
@@ -121,11 +188,12 @@ def build_cytoscape_service_graph_html(
           'text-valign': 'bottom',
           'text-halign': 'center',
           'font-size': '10px',
+          'color': theme.node_label,
           'background-color': 'data(color)',
           'width': 28,
           'height': 28,
           'border-width': 2,
-          'border-color': '#333',
+          'border-color': theme.node_border,
           'text-margin-y': 4,
         }}
       }},
@@ -143,8 +211,8 @@ def build_cytoscape_service_graph_html(
         selector: 'edge',
         style: {{
           'width': 1.5,
-          'line-color': '#888',
-          'target-arrow-color': '#888',
+          'line-color': theme.edge,
+          'target-arrow-color': theme.arrow,
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'arrow-scale': 0.8,
@@ -154,7 +222,7 @@ def build_cytoscape_service_graph_html(
         selector: 'node:selected',
         style: {{
           'border-width': 4,
-          'border-color': '#2C3E50',
+          'border-color': theme.selected_border,
         }}
       }}
     ],
@@ -168,16 +236,6 @@ def build_cytoscape_service_graph_html(
       numIter: 1000,
     }},
     wheelSensitivity: 0.2,
-  }});
-
-  cy.nodes('[?highlight]').forEach(function(node) {{
-    let growing = true;
-    setInterval(function() {{
-      const w = growing ? 40 : 32;
-      node.style('width', w);
-      node.style('height', w);
-      growing = !growing;
-    }}, 600);
   }});
 
   cy.on('tap', 'node', function(evt) {{
@@ -346,12 +404,13 @@ def render_radial_context_map(
     highlight_services: set[str] | None = None,
     height: int = 420,
 ) -> None:
-    """Build and embed D3 radial bounded-context mind-map."""
-    html = build_radial_mindmap_html(
+    """Deprecated: use render_bounded_context_map in context_map.py."""
+    from migrate_framework.ui.context_map import render_bounded_context_map
+
+    render_bounded_context_map(
+        chart_key,
         bank_name,
         bounded_contexts,
-        chart_id=chart_key,
         highlight_services=highlight_services,
-        height=height,
+        tree_height=height,
     )
-    interactive_graph_html(chart_key, html, height=height + 8)

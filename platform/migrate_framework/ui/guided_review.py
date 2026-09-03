@@ -12,11 +12,12 @@ from migrate_framework.ui.gate_display import gate_status_display
 from migrate_framework.ui.gate_review import render_gate_review_context
 from migrate_framework.ui.landscape_overview import _diagnosis, _graph_payload, _ingest_summary
 from migrate_framework.ui.navigation import set_guided_stage
-from migrate_framework.ui.interactive_graphs import render_interactive_service_graph, render_radial_context_map
+from migrate_framework.ui.context_map import render_bounded_context_map
+from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
 from migrate_framework.ui.taxonomy import next_incomplete_stage, stage_visual_components
+from migrate_framework.ui.transition_map import render_as_is_to_be_map
 from migrate_framework.ui.visualizations import (
-    build_plotly_as_is_to_be,
     build_plotly_pipeline_journey,
     build_plotly_plan_timeline,
     build_plotly_smell_summary,
@@ -44,7 +45,7 @@ def _render_step_visual(stage: PipelineStage, project: MigrationProject, complet
 
     if "context_map" in components_list and ingest.get("bounded_contexts"):
         bank = project.landscape.name if project.landscape else "Landscape"
-        render_radial_context_map(
+        render_bounded_context_map(
             f"guided-ctx-{stage.value}",
             bank,
             ingest["bounded_contexts"],
@@ -85,8 +86,12 @@ def _render_step_visual(stage: PipelineStage, project: MigrationProject, complet
         plan = project.metadata.get("migration_plan", {}) or {}
         phases = plan.get("phases") if isinstance(plan, dict) else []
         if contexts or adrs:
-            transition = build_plotly_as_is_to_be(contexts, adrs, phases or [])
-            render_plotly_chart(transition, key=f"transition-{stage.value}")
+            render_as_is_to_be_map(
+                f"guided-transition-{stage.value}",
+                contexts,
+                adrs,
+                phases or [],
+            )
 
     if "plan_timeline" in components_list:
         plan = project.metadata.get("migration_plan", {}) or {}

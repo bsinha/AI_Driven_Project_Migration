@@ -51,8 +51,9 @@ def render_stage_l1_summary(
         ])
 
     if "context_count" in panels and contexts:
-        rows = [{"context": c.get("context"), "services": len(c.get("services") or [])} for c in contexts[:8]]
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.caption(
+            f"{len(contexts)} bounded context(s) mapped — see **Bounded-context map** for the full summary table."
+        )
 
     if "evidence_coverage" in panels:
         coverage = ingest.get("coverage") or []

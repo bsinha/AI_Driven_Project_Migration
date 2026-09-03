@@ -187,17 +187,22 @@ def _render_all_content(project: MigrationProject) -> None:
 st.set_page_config(page_title=PRODUCT_NAME, layout="wide")
 _init_session_state()
 
+store = ProjectStore()
+orch = PipelineOrchestrator()
+projects = store.list_projects()
+
+st.sidebar.header("Project")
+selected = st.sidebar.selectbox(
+    "Active project",
+    options=["— new —"] + projects,
+    key="sidebar_project_select",
+)
+
 ui_role = render_role_selector()
 init_navigation_state(ui_role)
 
 st.title(PRODUCT_NAME)
 st.caption(PRODUCT_TAGLINE)
-
-store = ProjectStore()
-orch = PipelineOrchestrator()
-
-projects = store.list_projects()
-selected = st.selectbox("Project", options=["— new —"] + projects)
 
 project: MigrationProject | None = None
 report_md: str | None = None
@@ -228,25 +233,6 @@ else:
 
     report_md = generate_markdown_report(project)
     report_html = generate_html_report(project)
-    dl1, dl2 = st.columns(2)
-    with dl1:
-        st.download_button(
-            "Download report (Markdown)",
-            data=report_md,
-            file_name=report_filename(project, "md"),
-            mime="text/markdown",
-            use_container_width=True,
-            help="Shareable summary for architects and stakeholders",
-        )
-    with dl2:
-        st.download_button(
-            "Download report (HTML)",
-            data=report_html,
-            file_name=report_filename(project, "html"),
-            mime="text/html",
-            use_container_width=True,
-            help="Print-ready report; use browser Print to PDF",
-        )
 
 if project:
     completed = _completed_stages(project)
@@ -361,8 +347,3 @@ if project and report_md and report_html:
         mime="text/html",
         use_container_width=True,
     )
-
-st.sidebar.header("API")
-st.sidebar.code("uvicorn migrate_framework.api.main:app --reload --port 8080")
-st.sidebar.header("CLI")
-st.sidebar.code("migrate-framework report --project-id <id>")

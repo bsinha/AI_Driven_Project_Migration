@@ -225,6 +225,10 @@ def render_gate_controls(
 
 def render_as_is_to_be(project: MigrationProject) -> None:
     st.subheader("AS-IS → TO-BE summary")
+    st.caption(
+        "Open **Landscape** or **Dashboard** for the comparative side-by-side transition diagram. "
+        "This table lists ADR-level AS-IS / TO-BE text for governance review."
+    )
     adrs = project.metadata.get("adrs", [])
     if not adrs:
         st.info("Run **recommend** to generate ADRs with AS-IS / TO-BE previews.")

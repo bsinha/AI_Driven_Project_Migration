@@ -344,6 +344,7 @@ def build_plotly_bounded_context_tree(
     bounded_contexts: list[dict[str, Any]],
     *,
     highlight_services: set[str] | None = None,
+    show_services: bool = True,
 ) -> Any:
     highlight_services = highlight_services or set()
     root = bank_name or "Landscape"
@@ -365,24 +366,26 @@ def build_plotly_bounded_context_tree(
         node_hovers[ctx_name] = f"<b>{ctx_name}</b><br>{len(svc_list)} services"
         node_labels[ctx_name] = ctx_name
         node_customdata[ctx_name] = ctx_name
-        for svc in svc_list:
-            svc = str(svc)
-            g.add_node(svc)
-            g.add_edge(ctx_name, svc)
-            if svc in highlight_services:
-                node_colors[svc] = "#E45756"
-            else:
-                node_colors[svc] = color
-            node_hovers[svc] = f"<b>{svc}</b><br>Context: {ctx_name}"
-            node_labels[svc] = svc.replace("-service", "")
-            node_customdata[svc] = svc
+        if show_services:
+            for svc in svc_list:
+                svc = str(svc)
+                g.add_node(svc)
+                g.add_edge(ctx_name, svc)
+                if svc in highlight_services:
+                    node_colors[svc] = "#E45756"
+                else:
+                    node_colors[svc] = color
+                node_hovers[svc] = f"<b>{svc}</b><br>Context: {ctx_name}"
+                node_labels[svc] = svc.replace("-service", "")
+                node_customdata[svc] = svc
 
     layers: dict[int, list[str]] = {0: [root]}
     for ctx in bounded_contexts:
         ctx_name = str(ctx.get("context") or "Context")
         layers.setdefault(1, []).append(ctx_name)
-        for svc in ctx.get("services") or []:
-            layers.setdefault(2, []).append(str(svc))
+        if show_services:
+            for svc in ctx.get("services") or []:
+                layers.setdefault(2, []).append(str(svc))
 
     pos: dict[str, tuple[float, float]] = {}
     for layer, nodes in layers.items():
@@ -440,8 +443,8 @@ def build_plotly_bounded_context_tree(
         margin=dict(l=10, r=10, t=36, b=10),
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=420,
-        title="Bounded-context map (zoom/pan; red = shared DB)",
+        height=420 if show_services else 280,
+        title="Bounded-context tree (top-down; red = shared DB)" if show_services else "Bounded contexts (services hidden)",
     )
     return fig
 
@@ -480,67 +483,276 @@ def build_plotly_sync_chains(coupling: dict[str, Any], limit: int = 6) -> Any:
     )
 
 
+ASIS_CTX_PREFIX = "asis_ctx::"
+TOBE_NODE_PREFIX = "tobe::"
+
+
+def _short_service_label(service_id: str) -> str:
+    return service_id.replace("-service", "")
+
+
+def _migration_edge_traces(
+    edges: list[tuple[str, str]],
+    positions: dict[str, tuple[float, float]],
+    *,
+    color: str,
+    dash: str,
+    width: float,
+) -> go.Scatter:
+    edge_x, edge_y = [], []
+    for src, tgt in edges:
+        if src not in positions or tgt not in positions:
+            continue
+        x0, y0 = positions[src]
+        x1, y1 = positions[tgt]
+        edge_x.extend([x0, x1, None])
+        edge_y.extend([y0, y1, None])
+    return go.Scatter(
+        x=edge_x,
+        y=edge_y,
+        line=dict(width=width, color=color, dash=dash),
+        hoverinfo="none",
+        mode="lines",
+    )
+
+
+def build_plotly_side_by_side_transition(
+    bounded_contexts: list[dict[str, Any]],
+    migration_edges: list[dict[str, Any]],
+    *,
+    height: int = 480,
+) -> Any:
+    """Left: AS-IS contexts + services; right: TO-BE targets; cross-links show consolidation."""
+    if go is None:
+        raise RuntimeError("plotly is required")
+
+    positions: dict[str, tuple[float, float]] = {}
+    node_colors: dict[str, str] = {}
+    node_hovers: dict[str, str] = {}
+    node_labels: dict[str, str] = {}
+    node_sizes: dict[str, float] = {}
+
+    asis_internal: list[tuple[str, str]] = []
+    migration_adr: list[tuple[str, str]] = []
+    migration_phase: list[tuple[str, str]] = []
+    migration_unmapped: list[tuple[str, str]] = []
+
+    y_cursor = 0.0
+    ctx_palette = ["#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B", "#B279A2"]
+
+    for index, ctx in enumerate(bounded_contexts):
+        ctx_name = str(ctx.get("context") or "Context")
+        ctx_id = f"{ASIS_CTX_PREFIX}{ctx_name}"
+        color = ctx_palette[index % len(ctx_palette)]
+        services = [str(s) for s in (ctx.get("services") or [])]
+        service_ys: list[float] = []
+
+        for svc in services:
+            positions[svc] = (-2.0, y_cursor)
+            node_colors[svc] = color
+            node_hovers[svc] = f"<b>{svc}</b><br>AS-IS · {ctx_name}"
+            node_labels[svc] = _short_service_label(svc)
+            node_sizes[svc] = 14
+            service_ys.append(y_cursor)
+            asis_internal.append((ctx_id, svc))
+            y_cursor += 1.0
+
+        ctx_y = sum(service_ys) / len(service_ys) if service_ys else y_cursor
+        positions[ctx_id] = (-4.0, ctx_y)
+        node_colors[ctx_id] = color
+        node_hovers[ctx_id] = f"<b>{ctx_name}</b><br>{len(services)} service(s)"
+        node_labels[ctx_id] = ctx_name
+        node_sizes[ctx_id] = 20
+        y_cursor += 0.5
+
+    tobe_targets = sorted({str(e["target"]) for e in migration_edges})
+    for index, target in enumerate(tobe_targets):
+        node_id = f"{TOBE_NODE_PREFIX}{target}"
+        positions[node_id] = (4.0, float(index))
+        if target == "Unmapped":
+            node_colors[node_id] = "#B0B0B0"
+        else:
+            node_colors[node_id] = "#54A24B"
+        node_hovers[node_id] = f"<b>TO-BE</b><br>{target}"
+        node_labels[node_id] = target if len(target) <= 32 else target[:29] + "..."
+        node_sizes[node_id] = 22
+
+    for edge in migration_edges:
+        src = str(edge["source"])
+        tgt_id = f"{TOBE_NODE_PREFIX}{edge['target']}"
+        kind = str(edge.get("kind") or "adr")
+        pair = (src, tgt_id)
+        if kind == "phase":
+            migration_phase.append(pair)
+        elif kind == "unmapped":
+            migration_unmapped.append(pair)
+        else:
+            migration_adr.append(pair)
+
+    traces: list[Any] = []
+    if asis_internal:
+        traces.append(
+            _migration_edge_traces(asis_internal, positions, color="#bbb", dash="solid", width=1.2)
+        )
+    if migration_adr:
+        traces.append(
+            _migration_edge_traces(migration_adr, positions, color="#4C78A8", dash="dash", width=2.0)
+        )
+    if migration_phase:
+        traces.append(
+            _migration_edge_traces(migration_phase, positions, color="#EECA3B", dash="dot", width=1.8)
+        )
+    if migration_unmapped:
+        traces.append(
+            _migration_edge_traces(migration_unmapped, positions, color="#B0B0B0", dash="dash", width=1.5)
+        )
+
+    node_ids = list(positions.keys())
+    node_x = [positions[n][0] for n in node_ids]
+    node_y = [positions[n][1] for n in node_ids]
+    node_trace = go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode="markers+text",
+        text=[node_labels[n] for n in node_ids],
+        textposition="top center",
+        hovertext=[node_hovers[n] for n in node_ids],
+        hoverinfo="text",
+        customdata=node_ids,
+        marker=dict(
+            size=[node_sizes[n] for n in node_ids],
+            color=[node_colors[n] for n in node_ids],
+            line=dict(width=1, color="#333"),
+        ),
+    )
+    traces.append(node_trace)
+
+    fig = go.Figure(data=traces)
+    fig.update_layout(
+        showlegend=False,
+        hovermode="closest",
+        dragmode="pan",
+        margin=dict(l=20, r=20, t=48, b=20),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        height=max(height, int(y_cursor * 28 + 80)),
+        title="AS-IS → TO-BE transition (side-by-side)",
+        annotations=[
+            dict(x=-3.0, y=1.02, xref="x", yref="paper", text="AS-IS", showarrow=False, font=dict(size=14)),
+            dict(x=4.0, y=1.02, xref="x", yref="paper", text="TO-BE", showarrow=False, font=dict(size=14)),
+        ],
+    )
+    return fig
+
+
+def build_plotly_migration_sankey(
+    migration_edges: list[dict[str, Any]],
+    *,
+    label_color: str = "#262730",
+    paper_bgcolor: str = "#ffffff",
+    plot_bgcolor: str = "#f0f2f6",
+) -> Any:
+    if go is None:
+        raise RuntimeError("plotly is required")
+    if not migration_edges:
+        fig = go.Figure()
+        fig.update_layout(title="No migration mapping", height=360)
+        return fig
+
+    labels: list[str] = []
+    label_index: dict[str, int] = {}
+    node_sides: list[str] = []
+
+    def register(label: str, side: str) -> int:
+        key = f"{side}::{label}"
+        if key not in label_index:
+            label_index[key] = len(labels)
+            display = label if len(label) <= 34 else f"{label[:31]}..."
+            prefix = "AS-IS" if side == "asis" else "TO-BE"
+            labels.append(f"{prefix} · {display}")
+            node_sides.append(side)
+        return label_index[key]
+
+    sources: list[int] = []
+    targets: list[int] = []
+    values: list[int] = []
+    link_colors: list[str] = []
+
+    kind_colors = {
+        "adr": "rgba(76, 120, 168, 0.55)",
+        "phase": "rgba(238, 202, 59, 0.55)",
+        "unmapped": "rgba(176, 176, 176, 0.45)",
+    }
+
+    for edge in migration_edges:
+        src_label = _short_service_label(str(edge["source"]))
+        tgt_label = str(edge["target"])
+        kind = str(edge.get("kind") or "adr")
+        src_i = register(src_label, "asis")
+        tgt_i = register(tgt_label, "tobe")
+        sources.append(src_i)
+        targets.append(tgt_i)
+        values.append(1)
+        link_colors.append(kind_colors.get(kind, kind_colors["adr"]))
+
+    node_colors: list[str] = []
+    for i, side in enumerate(node_sides):
+        if side == "asis":
+            node_colors.append("rgb(55, 95, 138)")
+        elif labels[i].startswith("TO-BE · Unmapped"):
+            node_colors.append("rgb(120, 120, 120)")
+        else:
+            node_colors.append("rgb(52, 128, 72)")
+
+    label_count = len(labels)
+    fig = go.Figure(
+        go.Sankey(
+            arrangement="snap",
+            orientation="h",
+            hoverlabel=dict(
+                bgcolor=plot_bgcolor,
+                bordercolor=label_color,
+                font=dict(color=label_color, size=13),
+            ),
+            node=dict(
+                label=[""] * label_count,
+                customdata=labels,
+                hovertemplate="<b>%{customdata}</b><extra></extra>",
+                pad=28,
+                thickness=24,
+                color=node_colors,
+                line=dict(color="rgba(80, 80, 80, 0.5)", width=0.6),
+            ),
+            link=dict(
+                source=sources,
+                target=targets,
+                value=values,
+                color=link_colors,
+            ),
+        )
+    )
+    fig.update_layout(
+        title=dict(text="AS-IS → TO-BE migration flow", font=dict(size=16, color=label_color)),
+        font=dict(size=14, color=label_color),
+        height=max(480, label_count * 36 + 120),
+        margin=dict(l=48, r=48, t=56, b=36),
+        paper_bgcolor=paper_bgcolor,
+        plot_bgcolor=plot_bgcolor,
+        template=None,
+    )
+    return fig
+
+
 def build_plotly_as_is_to_be(
     bounded_contexts: list[dict[str, Any]],
     adrs: list[dict[str, Any]],
     plan_phases: list[dict[str, Any]] | None = None,
 ) -> Any:
-    if go is None:
-        raise RuntimeError("plotly is required")
+    """Deprecated hub graph — delegates to side-by-side layout."""
+    from migrate_framework.ui.transition_map import build_migration_edges
 
-    g = nx.DiGraph()
-    asis_hub, tobe_hub = "AS-IS services", "TO-BE proposals"
-    g.add_node(asis_hub)
-    g.add_node(tobe_hub)
-    g.add_edge(asis_hub, tobe_hub)
-
-    node_colors = {asis_hub: "#4C78A8", tobe_hub: "#54A24B"}
-    node_hovers = {
-        asis_hub: "<b>AS-IS</b> granular services",
-        tobe_hub: "<b>TO-BE</b> consolidation proposals",
-    }
-    node_labels = {asis_hub: "AS-IS", tobe_hub: "TO-BE"}
-    node_customdata = {asis_hub: "asis", tobe_hub: "tobe"}
-
-    for ctx in bounded_contexts:
-        for svc in (ctx.get("services") or [])[:8]:
-            svc = str(svc)
-            g.add_node(svc)
-            g.add_edge(asis_hub, svc)
-            node_colors[svc] = "#72B7B2"
-            node_hovers[svc] = f"<b>{svc}</b> current service"
-            node_labels[svc] = svc.replace("-service", "")
-            node_customdata[svc] = svc
-
-    for adr in adrs[:6]:
-        title = str(adr.get("title") or "ADR")
-        short = title[:28] + "..." if len(title) > 28 else title
-        g.add_node(title)
-        g.add_edge(tobe_hub, title)
-        node_colors[title] = "#F58518"
-        node_hovers[title] = f"<b>ADR</b><br>{title}"
-        node_labels[title] = short
-        node_customdata[title] = title
-
-    if plan_phases:
-        for phase in plan_phases[:4]:
-            name = str(phase.get("name") or phase.get("phase") or "Phase")
-            g.add_node(name)
-            g.add_edge(tobe_hub, name)
-            node_colors[name] = "#EECA3B"
-            node_hovers[name] = f"<b>Phase</b><br>{name}"
-            node_labels[name] = name
-            node_customdata[name] = name
-
-    return _plotly_network_figure(
-        g,
-        title="AS-IS → TO-BE transition",
-        node_colors=node_colors,
-        node_hovers=node_hovers,
-        node_labels=node_labels,
-        node_customdata=node_customdata,
-        height=440,
-    )
+    edges = build_migration_edges(bounded_contexts, adrs, plan_phases)
+    return build_plotly_side_by_side_transition(bounded_contexts, edges)
 
 
 def build_plotly_smell_summary(smells: list[dict[str, Any]]) -> Any:

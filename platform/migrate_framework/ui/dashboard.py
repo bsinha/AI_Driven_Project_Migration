@@ -10,11 +10,12 @@ from migrate_framework.models import PIPELINE_STAGE_ORDER, MigrationProject, Pip
 from migrate_framework.ui.artifact_views import STAGE_TITLES
 from migrate_framework.ui.gate_display import approval_gates_for_display
 from migrate_framework.ui.landscape_overview import _diagnosis, _graph_payload, _ingest_summary
-from migrate_framework.ui.interactive_graphs import render_interactive_service_graph, render_radial_context_map
+from migrate_framework.ui.context_map import render_bounded_context_map
+from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
 from migrate_framework.ui.taxonomy import filter_services_by_context, filter_smells_by_risk, RiskClass
+from migrate_framework.ui.transition_map import render_as_is_to_be_map
 from migrate_framework.ui.visualizations import (
-    build_plotly_as_is_to_be,
     build_plotly_gate_donut,
     build_plotly_pipeline_journey,
     build_plotly_smell_summary,
@@ -47,7 +48,7 @@ def _gates_pending(project: MigrationProject) -> int:
 def render_migration_dashboard(project: MigrationProject, completed: set[PipelineStage]) -> None:
     st.markdown("### Overview")
     st.caption(
-        "Interactive overview — drag service nodes, explore the radial context map, "
+        "Interactive overview — drag service nodes, explore the bounded-context map, "
         "and click a **pipeline stage** to jump to the Pipeline tab."
     )
 
@@ -105,8 +106,8 @@ def render_migration_dashboard(project: MigrationProject, completed: set[Pipelin
     ctx_col, chain_col = st.columns(2)
     with ctx_col:
         if contexts:
-            render_radial_context_map(
-                "dashboard-context-mindmap",
+            render_bounded_context_map(
+                "dashboard-context-map",
                 bank_name,
                 contexts,
                 highlight_services=shared_db_services,
@@ -125,8 +126,12 @@ def render_migration_dashboard(project: MigrationProject, completed: set[Pipelin
     plan = project.metadata.get("migration_plan", {}) or {}
     phases = plan.get("phases") if isinstance(plan, dict) else []
     if contexts or adrs:
-        transition = build_plotly_as_is_to_be(contexts, adrs, phases or [])
-        render_plotly_chart(transition, key="dashboard-transition")
+        render_as_is_to_be_map(
+            "dashboard-transition",
+            contexts,
+            adrs,
+            phases or [],
+        )
 
     current = project.current_stage
     icon_stage = STAGE_TITLES.get(current.value, current.value)

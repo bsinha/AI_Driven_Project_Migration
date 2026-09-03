@@ -10,7 +10,8 @@ from migrate_framework.models import MigrationProject, PipelineStage
 from migrate_framework.reporting.ingest_evidence import summarize_ingest_evidence
 from migrate_framework.ui.artifact_views import _latest_artifact, _load
 from migrate_framework.ui.classified_panels import render_stage_l1_summary
-from migrate_framework.ui.interactive_graphs import render_interactive_service_graph, render_radial_context_map
+from migrate_framework.ui.context_map import render_bounded_context_map
+from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
 from migrate_framework.ui.taxonomy import (
     classify_service,
@@ -18,8 +19,8 @@ from migrate_framework.ui.taxonomy import (
     filter_smells_by_risk,
     RiskClass,
 )
+from migrate_framework.ui.transition_map import render_as_is_to_be_map
 from migrate_framework.ui.visualizations import (
-    build_plotly_as_is_to_be,
     build_plotly_pipeline_journey,
     build_plotly_smell_summary,
     build_plotly_sync_chains,
@@ -69,7 +70,7 @@ def _focus_services(ingest: dict[str, Any]) -> set[str] | None:
 def render_landscape_overview(project: MigrationProject, completed: set[PipelineStage]) -> None:
     st.markdown("### Landscape overview")
     st.caption(
-        "Interactive diagrams — drag service nodes, explore the radial context map. "
+        "Interactive diagrams — drag service nodes, bounded-context summary and tree below. "
         "Click a pipeline stage to open **Pipeline**. Tables remain under **Pipeline** and **Governance**."
     )
 
@@ -91,8 +92,8 @@ def render_landscape_overview(project: MigrationProject, completed: set[Pipeline
     with col_left:
         with st.expander("Bounded-context map", expanded=True):
             if contexts:
-                render_radial_context_map(
-                    "landscape-context-mindmap",
+                render_bounded_context_map(
+                    "landscape-context-map",
                     bank_name,
                     contexts,
                     highlight_services=shared_db_services,
@@ -147,8 +148,12 @@ def render_landscape_overview(project: MigrationProject, completed: set[Pipeline
     phases = plan.get("phases") if isinstance(plan, dict) else []
     if contexts or adrs:
         with st.expander("AS-IS → TO-BE transition map", expanded=False):
-            transition = build_plotly_as_is_to_be(contexts, adrs, phases or [])
-            render_plotly_chart(transition, key="landscape-transition")
+            render_as_is_to_be_map(
+                "landscape-transition",
+                contexts,
+                adrs,
+                phases or [],
+            )
 
     if ingest.get("shared_databases"):
         with st.expander("Shared database clusters", expanded=False):
