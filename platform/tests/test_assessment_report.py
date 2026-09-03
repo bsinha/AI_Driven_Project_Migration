@@ -1,9 +1,9 @@
-"""Tests for in-app stakeholder report viewer."""
+"""Tests for in-app migration assessment report viewer."""
 
 from __future__ import annotations
 
-from migrate_framework.models import MigrationProject, PipelineStage, StageRun, TechStackProfile
-from migrate_framework.ui.stakeholder_report import _project_signature
+from migrate_framework.models import MigrationProject, PipelineStage, StageRun
+from migrate_framework.ui.assessment_report import _project_signature
 
 
 def test_project_signature_changes_with_stage_runs() -> None:

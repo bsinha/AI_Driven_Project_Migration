@@ -430,7 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
     status_p.add_argument("--project-id", required=True)
     status_p.set_defaults(func=cmd_status)
 
-    report_p = sub.add_parser("report", help="Generate stakeholder migration report")
+    report_p = sub.add_parser("report", help="Generate migration assessment report")
     report_p.add_argument("--project-id", required=True)
     report_p.add_argument("--format", choices=["md", "html"], default="md")
     report_p.add_argument("--output", help="Output file path (default: project artifacts folder)")

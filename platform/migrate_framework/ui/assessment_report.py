@@ -1,4 +1,4 @@
-"""In-app stakeholder report viewer with download actions."""
+"""In-app migration assessment report viewer with download actions."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _project_signature(project: MigrationProject) -> str:
     return f"{len(project.stage_runs)}:{artifact_count}:{project.current_stage.value}:{gate_state}"
 
 
-@st.cache_data(show_spinner="Generating report…")
+@st.cache_data(show_spinner="Generating assessment…")
 def _cached_report_content(project_id: str, signature: str) -> tuple[str, str, str]:
     from migrate_framework.pipeline.project_store import ProjectStore
 
@@ -35,11 +35,11 @@ def _cached_report_content(project_id: str, signature: str) -> tuple[str, str, s
     )
 
 
-def render_stakeholder_report(project: MigrationProject) -> None:
-    """Full stakeholder report with in-app view and download actions."""
-    st.subheader("Stakeholder report")
+def render_assessment_report(project: MigrationProject) -> None:
+    """Full migration assessment report with in-app view and download actions."""
+    st.subheader("Migration assessment report")
     st.caption(
-        "Evidence-backed migration assessment for program and architecture stakeholders. "
+        "Evidence-backed summary of pipeline findings, architecture decisions, and migration plan. "
         "Review on this page or download to share."
     )
 
@@ -55,7 +55,7 @@ def render_stakeholder_report(project: MigrationProject) -> None:
             file_name=md_filename,
             mime="text/markdown",
             use_container_width=True,
-            key="report-download-md",
+            key="assessment-download-md",
         )
     with tool2:
         st.download_button(
@@ -64,13 +64,13 @@ def render_stakeholder_report(project: MigrationProject) -> None:
             file_name=html_filename,
             mime="text/html",
             use_container_width=True,
-            key="report-download-html",
+            key="assessment-download-html",
         )
     with tool3:
         st.caption(f"Files: `{md_filename}` · `{html_filename}`")
 
     view_mode = st.radio(
-        "Report view",
+        "Assessment view",
         ["Rendered report", "Printable HTML"],
         horizontal=True,
         help="Rendered report is easiest to read in the app. Printable HTML matches the downloaded file.",

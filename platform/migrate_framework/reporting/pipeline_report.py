@@ -1,4 +1,4 @@
-"""Generate stakeholder-ready pipeline reports from migration projects."""
+"""Generate migration assessment reports from pipeline projects."""
 
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def _executive_summary(project: MigrationProject, bundle: dict[str, Any]) -> lis
 
 
 def generate_markdown_report(project: MigrationProject) -> str:
-    """Build a stakeholder-ready Markdown report for a migration project."""
+    """Build a migration assessment report for a project."""
     bundle = _artifact_bundle(project)
     completed = _completed_stages(project)
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -452,7 +452,7 @@ def _html_report_styles(*, embed: bool = False) -> str:
 
 
 def generate_html_report(project: MigrationProject, *, embed: bool = False) -> str:
-    """Build a printable HTML report for stakeholders."""
+    """Build a printable HTML migration assessment report."""
     markdown = generate_markdown_report(project)
     body = _markdown_to_html_paragraphs(markdown)
     styles = _html_report_styles(embed=embed)
@@ -474,4 +474,4 @@ def generate_html_report(project: MigrationProject, *, embed: bool = False) -> s
 def report_filename(project: MigrationProject, extension: str) -> str:
     slug = project.id.replace("proj-", "")
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
-    return f"migration-report-{slug}-{timestamp}.{extension}"
+    return f"migration-assessment-{slug}-{timestamp}.{extension}"

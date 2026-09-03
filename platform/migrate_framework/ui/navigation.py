@@ -6,7 +6,7 @@ import streamlit as st
 
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 
-MAIN_TABS = ["Dashboard", "Guided Review", "Landscape", "Pipeline", "Phases", "Governance", "Report", "Playbook"]
+MAIN_TABS = ["Dashboard", "Guided Review", "Landscape", "Pipeline", "Phases", "Governance", "Assessment", "Playbook"]
 
 ROLE_DEFAULT_TAB: dict[str, str] = {
     "architect": "Guided Review",
@@ -26,6 +26,40 @@ def init_navigation_state(role: str) -> None:
         st.session_state.filter_context = "All"
     if "filter_risk" not in st.session_state:
         st.session_state.filter_risk = "all"
+
+
+def ensure_main_tab(tab_labels: list[str]) -> None:
+    if tab_labels and st.session_state.get("main_tab") not in tab_labels:
+        st.session_state.main_tab = tab_labels[0]
+
+
+def set_main_tab(tab: str) -> None:
+    st.session_state.main_tab = tab
+
+
+def render_main_tab_selector(tab_labels: list[str]) -> None:
+    """Horizontal section selector synced with session state (sidebar can jump tabs)."""
+    ensure_main_tab(tab_labels)
+    st.radio(
+        "Section",
+        tab_labels,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="main_tab",
+    )
+
+
+def render_assessment_sidebar_action(tab_labels: list[str]) -> None:
+    if "Assessment" not in tab_labels:
+        return
+    if st.sidebar.button(
+        "View migration assessment",
+        use_container_width=True,
+        key="sidebar-open-assessment",
+        help="Open the Assessment section",
+    ):
+        set_main_tab("Assessment")
+        st.rerun()
 
 
 def current_guided_stage() -> PipelineStage:

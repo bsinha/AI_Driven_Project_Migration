@@ -25,14 +25,16 @@ from migrate_framework.ui.navigation import (
     init_navigation_state,
     MAIN_TABS,
     build_breadcrumb_parts,
+    render_assessment_sidebar_action,
     render_breadcrumb,
     render_classification_filters,
+    render_main_tab_selector,
 )
 from migrate_framework.ui.governance_panel import render_governance_panel, render_role_selector, role_allows
 from migrate_framework.ui.phase_dashboard import render_phase_dashboard
 from migrate_framework.ui.playbook_execution import render_playbook_execution
 from migrate_framework.ui.smell_governance import render_smell_governance
-from migrate_framework.ui.stakeholder_report import render_stakeholder_report
+from migrate_framework.ui.assessment_report import render_assessment_report
 from migrate_framework.pipeline.governance import stage_summary_metrics
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -252,89 +254,79 @@ if project:
     if not role_allows(ui_role, "phases"):
         tab_labels = [t for t in tab_labels if t != "Phases"]
 
-    tabs = st.tabs(tab_labels)
-    tab_map = {label: tab for label, tab in zip(tab_labels, tabs, strict=False)}
+    render_assessment_sidebar_action(tab_labels)
+    render_main_tab_selector(tab_labels)
+    active_tab = st.session_state.main_tab
 
-    if "Dashboard" in tab_map:
-        with tab_map["Dashboard"]:
-            render_migration_dashboard(project, completed)
+    if active_tab == "Dashboard":
+        render_migration_dashboard(project, completed)
 
-    if "Guided Review" in tab_map:
-        with tab_map["Guided Review"]:
-            render_guided_review(orch, project, completed)
+    elif active_tab == "Guided Review":
+        render_guided_review(orch, project, completed)
 
-    if "Landscape" in tab_map:
-        with tab_map["Landscape"]:
-            render_landscape_overview(project, completed)
+    elif active_tab == "Landscape":
+        render_landscape_overview(project, completed)
 
-    if "Pipeline" in tab_map:
-        with tab_map["Pipeline"]:
-            st.subheader("Pipeline Progress")
-            _render_pipeline_selector(completed, project.current_stage)
+    elif active_tab == "Pipeline":
+        st.subheader("Pipeline Progress")
+        _render_pipeline_selector(completed, project.current_stage)
 
-            st.subheader("Run Stage")
-            rc1, rc2, rc3, rc4 = st.columns([1.2, 1.2, 1, 1])
-            with rc1:
-                stage_to_run = st.selectbox("Stage", [s.value for s in PIPELINE_STAGE_ORDER])
-            with rc2:
-                through = st.selectbox("Run through (optional)", ["—"] + [s.value for s in PIPELINE_STAGE_ORDER])
-            with rc3:
-                auto_approve = st.checkbox("Auto-approve gates")
-            with rc4:
-                st.write("")
-                run_clicked = st.button("Run pipeline", use_container_width=True)
+        st.subheader("Run Stage")
+        rc1, rc2, rc3, rc4 = st.columns([1.2, 1.2, 1, 1])
+        with rc1:
+            stage_to_run = st.selectbox("Stage", [s.value for s in PIPELINE_STAGE_ORDER])
+        with rc2:
+            through = st.selectbox("Run through (optional)", ["—"] + [s.value for s in PIPELINE_STAGE_ORDER])
+        with rc3:
+            auto_approve = st.checkbox("Auto-approve gates")
+        with rc4:
+            st.write("")
+            run_clicked = st.button("Run pipeline", use_container_width=True)
 
-            if run_clicked:
-                try:
-                    if through != "—":
-                        orch.run_through(project.id, PipelineStage(through), auto_approve=auto_approve)
-                    else:
-                        orch.run_stage(project.id, PipelineStage(stage_to_run))
-                    st.success("Stage completed")
-                    st.rerun()
-                except Exception as exc:
-                    st.error(str(exc))
+        if run_clicked:
+            try:
+                if through != "—":
+                    orch.run_through(project.id, PipelineStage(through), auto_approve=auto_approve)
+                else:
+                    orch.run_stage(project.id, PipelineStage(stage_to_run))
+                st.success("Stage completed")
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
 
-            with st.expander("Approval gates summary", expanded=False):
-                st.caption(
-                    "Full gate review with evidence is in the **Governance** tab."
-                )
-                for gate in approval_gates_for_display(project):
-                    c1, c2 = st.columns([2, 3])
-                    with c1:
-                        role = "required" if gate.required else "optional"
-                        st.write(f"**{gate.stage.value}** ({role})")
-                    with c2:
-                        status_label, status_help = _gate_status_display(gate, completed)
-                        st.markdown(status_label, help=status_help)
+        with st.expander("Approval gates summary", expanded=False):
+            st.caption(
+                "Full gate review with evidence is in the **Governance** tab."
+            )
+            for gate in approval_gates_for_display(project):
+                c1, c2 = st.columns([2, 3])
+                with c1:
+                    role = "required" if gate.required else "optional"
+                    st.write(f"**{gate.stage.value}** ({role})")
+                with c2:
+                    status_label, status_help = _gate_status_display(gate, completed)
+                    st.markdown(status_label, help=status_help)
 
+        st.divider()
+        if st.session_state.pipeline_content_view == "stage":
+            _render_stage_content(orch, project, completed)
+        else:
+            _render_all_content(project)
+
+    elif active_tab == "Phases":
+        render_phase_dashboard(project, completed, orch=orch)
+        if role_allows(ui_role, "gates"):
             st.divider()
-            if st.session_state.pipeline_content_view == "stage":
-                _render_stage_content(orch, project, completed)
-            else:
-                _render_all_content(project)
+            render_smell_governance(orch, project)
 
-    if "Phases" in tab_map:
-        with tab_map["Phases"]:
-            render_phase_dashboard(project, completed, orch=orch)
-            if role_allows(ui_role, "gates"):
-                st.divider()
-                render_smell_governance(orch, project)
+    elif active_tab == "Governance":
+        render_governance_panel(orch, project, ui_role, completed)
 
-    if "Governance" in tab_map:
-        with tab_map["Governance"]:
-            render_governance_panel(orch, project, ui_role, completed)
+    elif active_tab == "Assessment":
+        render_assessment_report(project)
 
-    if "Report" in tab_map:
-        with tab_map["Report"]:
-            render_stakeholder_report(project)
-
-    if "Playbook" in tab_map:
-        with tab_map["Playbook"]:
-            if PipelineStage.PLAYBOOK in completed:
-                render_playbook_execution(project, store)
-            else:
-                st.info("Run the **playbook** stage to enable guided execution.")
-
-st.sidebar.header("Stakeholder report")
-st.sidebar.caption("Open the **Report** tab to view and download the full assessment.")
+    elif active_tab == "Playbook":
+        if PipelineStage.PLAYBOOK in completed:
+            render_playbook_execution(project, store)
+        else:
+            st.info("Run the **playbook** stage to enable guided execution.")

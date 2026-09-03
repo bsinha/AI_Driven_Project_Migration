@@ -364,14 +364,14 @@ def render_stage_analytics(project: MigrationProject) -> None:
 
 
 def render_embedded_report(project: MigrationProject) -> None:
-    st.info("The full stakeholder report is available in the **Report** tab (with Markdown and HTML download).")
-    from migrate_framework.ui.stakeholder_report import _cached_report_content, _project_signature
+    st.info("The full migration assessment report is in the **Assessment** tab (with Markdown and HTML download).")
+    from migrate_framework.ui.assessment_report import _cached_report_content, _project_signature
 
     report_md, _, _ = _cached_report_content(project.id, _project_signature(project))
     preview_lines = report_md.splitlines()[:40]
     st.markdown("\n".join(preview_lines))
     if len(report_md.splitlines()) > 40:
-        st.caption("…truncated preview — open **Report** for the full document.")
+        st.caption("…truncated preview — open **Assessment** for the full document.")
 
 
 def _playbook_generated(project: MigrationProject) -> bool:
@@ -431,5 +431,5 @@ def render_governance_panel(
 
     if role_allows(role, "analytics"):
         render_stage_analytics(project)
-        with st.expander("Full report preview"):
+        with st.expander("Assessment preview"):
             render_embedded_report(project)

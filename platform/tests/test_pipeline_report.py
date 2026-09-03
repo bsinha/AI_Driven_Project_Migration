@@ -55,7 +55,7 @@ def test_generate_markdown_report_includes_core_sections() -> None:
     assert "customer-identity-service" in report
     assert "## Migration Hypotheses" in report
     assert PRODUCT_NAME in report
-    assert report_filename(project, "md").endswith(".md")
+    assert report_filename(project, "md").startswith("migration-assessment-")
 
 
 def test_generate_html_report_is_html_document() -> None:
