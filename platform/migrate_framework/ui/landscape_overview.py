@@ -19,7 +19,7 @@ from migrate_framework.ui.taxonomy import (
     filter_smells_by_risk,
     RiskClass,
 )
-from migrate_framework.ui.transition_map import render_as_is_to_be_map
+from migrate_framework.ui.transition_map import render_as_is_to_be_map, resolve_plan_phases
 from migrate_framework.ui.visualizations import (
     build_plotly_pipeline_journey,
     build_plotly_smell_summary,
@@ -144,15 +144,15 @@ def render_landscape_overview(project: MigrationProject, completed: set[Pipeline
             render_plotly_chart(chains_fig, key="landscape-sync-chains")
 
     adrs = project.metadata.get("adrs", [])
-    plan = project.metadata.get("migration_plan", {}) or {}
-    phases = plan.get("phases") if isinstance(plan, dict) else []
+    phases = resolve_plan_phases(project.metadata)
     if contexts or adrs:
-        with st.expander("AS-IS → TO-BE transition map", expanded=False):
+        with st.expander("AS-IS → TO-BE architecture comparison", expanded=False):
             render_as_is_to_be_map(
                 "landscape-transition",
                 contexts,
                 adrs,
-                phases or [],
+                phases,
+                diagnosis=diagnosis,
             )
 
     if ingest.get("shared_databases"):

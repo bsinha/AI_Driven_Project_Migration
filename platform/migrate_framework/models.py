@@ -144,6 +144,45 @@ class WaiverRecord(BaseModel):
     stage: PipelineStage | None = None
 
 
+class ItemDecision(BaseModel):
+    """Per-item governance decision (ADR, bounded context, etc.)."""
+
+    item_id: str
+    item_type: str
+    decision: str
+    scope_phase: int = 1
+    reason_code: str | None = None
+    reason_text: str | None = None
+    decision_by: str = "operator"
+    decision_at: datetime = Field(default_factory=_utc_now)
+    blocks_gate: bool = False
+
+
+class SmellDecision(BaseModel):
+    """Human decision on a detected architectural smell."""
+
+    smell_key: str
+    smell_type: str
+    affected_services: list[str] = Field(default_factory=list)
+    decision: str = "open"
+    reason_code: str | None = None
+    reason_text: str | None = None
+    decision_by: str = "operator"
+    decision_at: datetime = Field(default_factory=_utc_now)
+    revisit_phase: int | None = None
+
+
+class ProgramPhase(BaseModel):
+    """Migration program increment (baseline or execution wave)."""
+
+    phase: int
+    name: str
+    status: str = "pending"
+    in_scope_contexts: list[str] = Field(default_factory=list)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class ApprovalGate(BaseModel):
     stage: PipelineStage
     required: bool = True
@@ -202,6 +241,22 @@ class MigrationProject(BaseModel):
 
     def governance_meta(self) -> dict[str, Any]:
         return self.metadata.setdefault("governance", {})
+
+    def item_decisions(self) -> list[ItemDecision]:
+        raw = self.metadata.get("item_decisions", [])
+        return [ItemDecision.model_validate(entry) for entry in raw]
+
+    def smell_decisions(self) -> list[SmellDecision]:
+        raw = self.metadata.get("smell_decisions", [])
+        return [SmellDecision.model_validate(entry) for entry in raw]
+
+    def program_phases(self) -> list[ProgramPhase]:
+        scope = self.metadata.get("program_scope", {})
+        raw = scope.get("phases", [])
+        return [ProgramPhase.model_validate(entry) for entry in raw]
+
+    def current_program_phase(self) -> int:
+        return int(self.metadata.get("program_scope", {}).get("current_phase", 0))
 
     @staticmethod
     def default_gates() -> list[ApprovalGate]:

@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from migrate_framework.models import PipelineStage
-from migrate_framework.ui.interactive_graphs import _GRAPH_THEME
 from migrate_framework.ui.navigation import set_guided_stage
-from migrate_framework.ui.visualizations import _safe_id
 
 
 def streamlit_plotly_theme() -> dict[str, str]:
@@ -50,72 +46,18 @@ def streamlit_chart_label_color() -> str:
 
 
 def render_plotly_sankey_chart(fig: Any, *, key: str) -> None:
-    """Embed Sankey with client-side theme (Plotly iframe labels ignore Streamlit theme)."""
-    layout_height = fig.layout.height if fig.layout.height else 480
-    render_id = _safe_id(key)
-    fig_dict = json.loads(fig.to_json())
-    themes_json = json.dumps(_GRAPH_THEME)
-    spec_json = json.dumps(fig_dict)
-
-    html = f"""
-<div id="{render_id}_wrap" class="ctx-atlas-sankey" style="width:100%;min-height:{layout_height}px;"></div>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script>
-(function() {{
-  const THEMES = {themes_json};
-  const spec = {spec_json};
-  const wrap = document.getElementById("{render_id}_wrap");
-
-  function parseRgb(color) {{
-    const m = String(color).match(/[\\d.]+/g);
-    if (!m || m.length < 3) return null;
-    return {{ r: Number(m[0]), g: Number(m[1]), b: Number(m[2]) }};
-  }}
-  function isDarkBackground(color) {{
-    const rgb = parseRgb(color);
-    if (!rgb) return false;
-    const lum = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-    return lum < 0.45;
-  }}
-  function resolveTheme() {{
-    try {{
-      const parentBody = window.parent && window.parent.document && window.parent.document.body;
-      if (parentBody) {{
-        const parentBg = getComputedStyle(parentBody).backgroundColor;
-        return isDarkBackground(parentBg) ? THEMES.dark : THEMES.light;
-      }}
-    }} catch (err) {{}}
-    return THEMES.light;
-  }}
-  function applyTheme(gd, theme) {{
-    wrap.style.background = theme.canvas_bg;
-    Plotly.relayout(gd, {{
-      paper_bgcolor: theme.canvas_bg,
-      plot_bgcolor: theme.canvas_bg,
-      font: {{ color: theme.node_label, size: 14 }},
-      title: {{ font: {{ color: theme.node_label, size: 16 }} }},
-    }});
-    const root = gd.querySelector(".main-svg") || gd;
-    root.querySelectorAll("text").forEach((el) => {{
-      el.setAttribute("fill", theme.node_label);
-      el.style.fill = theme.node_label;
-      el.setAttribute("stroke", "none");
-      el.style.stroke = "none";
-    }});
-    root.querySelectorAll("rect.bg").forEach((rect) => {{
-      rect.setAttribute("fill", theme.canvas_bg);
-    }});
-  }}
-
-  Plotly.newPlot(wrap, spec.data, spec.layout, {{ responsive: true, displayModeBar: false }}).then((gd) => {{
-    const theme = resolveTheme();
-    applyTheme(gd, theme);
-    gd.on("plotly_afterplot", () => applyTheme(gd, resolveTheme()));
-  }});
-}})();
-</script>
-"""
-    components.html(html, height=int(layout_height) + 48, scrolling=False)
+    """Render Sankey via native Streamlit Plotly (static layout — avoids relayout hangs)."""
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=key,
+        theme="streamlit",
+        config={
+            "staticPlot": True,
+            "displayModeBar": False,
+            "responsive": True,
+        },
+    )
 
 
 def render_plotly_chart(

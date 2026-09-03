@@ -29,7 +29,9 @@ from migrate_framework.ui.navigation import (
     render_classification_filters,
 )
 from migrate_framework.ui.governance_panel import render_governance_panel, render_role_selector, role_allows
+from migrate_framework.ui.phase_dashboard import render_phase_dashboard
 from migrate_framework.ui.playbook_execution import render_playbook_execution
+from migrate_framework.ui.smell_governance import render_smell_governance
 from migrate_framework.pipeline.governance import stage_summary_metrics
 from migrate_framework.reporting.pipeline_report import (
     generate_html_report,
@@ -256,6 +258,8 @@ if project:
         tab_labels = [t for t in tab_labels if t != "Playbook"]
     if not role_allows(ui_role, "gates"):
         tab_labels = [t for t in tab_labels if t != "Governance"]
+    if not role_allows(ui_role, "phases"):
+        tab_labels = [t for t in tab_labels if t != "Phases"]
 
     tabs = st.tabs(tab_labels)
     tab_map = {label: tab for label, tab in zip(tab_labels, tabs, strict=False)}
@@ -318,6 +322,13 @@ if project:
                 _render_stage_content(orch, project, completed)
             else:
                 _render_all_content(project)
+
+    if "Phases" in tab_map:
+        with tab_map["Phases"]:
+            render_phase_dashboard(project, completed, orch=orch)
+            if role_allows(ui_role, "gates"):
+                st.divider()
+                render_smell_governance(orch, project)
 
     if "Governance" in tab_map:
         with tab_map["Governance"]:

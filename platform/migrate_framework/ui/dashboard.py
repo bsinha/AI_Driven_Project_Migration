@@ -14,7 +14,7 @@ from migrate_framework.ui.context_map import render_bounded_context_map
 from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
 from migrate_framework.ui.taxonomy import filter_services_by_context, filter_smells_by_risk, RiskClass
-from migrate_framework.ui.transition_map import render_as_is_to_be_map
+from migrate_framework.ui.transition_map import render_as_is_to_be_map, resolve_plan_phases
 from migrate_framework.ui.visualizations import (
     build_plotly_gate_donut,
     build_plotly_pipeline_journey,
@@ -123,14 +123,14 @@ def render_migration_dashboard(project: MigrationProject, completed: set[Pipelin
             st.caption("Synchronous call chains appear after **diagnose**.")
 
     adrs = project.metadata.get("adrs", [])
-    plan = project.metadata.get("migration_plan", {}) or {}
-    phases = plan.get("phases") if isinstance(plan, dict) else []
+    phases = resolve_plan_phases(project.metadata)
     if contexts or adrs:
         render_as_is_to_be_map(
             "dashboard-transition",
             contexts,
             adrs,
-            phases or [],
+            phases,
+            diagnosis=diagnosis,
         )
 
     current = project.current_stage

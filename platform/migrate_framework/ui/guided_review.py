@@ -16,7 +16,7 @@ from migrate_framework.ui.context_map import render_bounded_context_map
 from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
 from migrate_framework.ui.taxonomy import next_incomplete_stage, stage_visual_components
-from migrate_framework.ui.transition_map import render_as_is_to_be_map
+from migrate_framework.ui.transition_map import render_as_is_to_be_map, resolve_plan_phases
 from migrate_framework.ui.visualizations import (
     build_plotly_pipeline_journey,
     build_plotly_plan_timeline,
@@ -83,19 +83,19 @@ def _render_step_visual(stage: PipelineStage, project: MigrationProject, complet
     if "as_is_to_be" in components_list:
         contexts = ingest.get("bounded_contexts") or []
         adrs = project.metadata.get("adrs", [])
-        plan = project.metadata.get("migration_plan", {}) or {}
-        phases = plan.get("phases") if isinstance(plan, dict) else []
+        phases = resolve_plan_phases(project.metadata)
         if contexts or adrs:
             render_as_is_to_be_map(
                 f"guided-transition-{stage.value}",
                 contexts,
                 adrs,
-                phases or [],
+                phases,
+                diagnosis=diagnosis,
             )
 
     if "plan_timeline" in components_list:
         plan = project.metadata.get("migration_plan", {}) or {}
-        phases = plan.get("phases") if isinstance(plan, dict) else []
+        phases = resolve_plan_phases(project.metadata)
         if phases:
             timeline = build_plotly_plan_timeline(phases)
             render_plotly_chart(timeline, key=f"plan-timeline-{stage.value}")

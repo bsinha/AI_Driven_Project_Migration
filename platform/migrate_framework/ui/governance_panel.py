@@ -12,16 +12,23 @@ from migrate_framework.pipeline.governance import (
     needs_escalation,
     stage_summary_metrics,
 )
+from migrate_framework.pipeline.scope import (
+    _adr_item_id,
+    pending_mandatory_items,
+    recommend_gate_clear,
+)
+from migrate_framework.governance_enums import GATE_REASON_CODES
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.reporting.pipeline_report import generate_markdown_report
 from migrate_framework.ui.gate_display import gate_expander_title, gate_status_display
 from migrate_framework.ui.gate_review import reason_codes_for_action, render_gate_review_context
+from migrate_framework.ui.scope_wizard import render_pilot_scope_wizard
 
 
 ROLE_VIEWS: dict[str, list[str]] = {
-    "architect": ["governance", "gates", "adrs", "vv", "analytics"],
-    "engineer": ["playbook", "analytics", "vv"],
-    "program": ["plan", "analytics", "gates"],
+    "architect": ["governance", "gates", "adrs", "vv", "analytics", "phases"],
+    "engineer": ["playbook", "analytics", "vv", "phases"],
+    "program": ["plan", "analytics", "gates", "phases"],
 }
 
 
@@ -223,6 +230,82 @@ def render_gate_controls(
                     st.rerun()
 
 
+def render_scope_item_decisions(orch: PipelineOrchestrator, project: MigrationProject) -> None:
+    """Per-ADR approve / defer / reject for pilot and phased scope."""
+    adrs = project.metadata.get("adrs", [])
+    if not adrs:
+        return
+
+    st.subheader("Scope decisions (per ADR)")
+    cleared, msg = recommend_gate_clear(project)
+    if cleared:
+        st.success("Recommend gate scope requirements satisfied.")
+    elif msg:
+        st.warning(msg)
+
+    pending = {p["item_id"]: p for p in pending_mandatory_items(project)}
+    decision_by = st.session_state.get("decision_by", "architect")
+
+    for adr in adrs:
+        if adr.get("target_context") == "Cross-cutting":
+            continue
+        item_id = _adr_item_id(adr)
+        existing = next((d for d in project.item_decisions() if d.item_id == item_id), None)
+        status = existing.decision if existing else "undecided"
+        badge = f"**{status}**"
+        with st.expander(f"{adr.get('title')} — {badge}", expanded=item_id in pending):
+            st.caption(f"Mandatory: {adr.get('mandatory', False)} · Context: {adr.get('target_context', '—')}")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("Approve", key=f"scope-approve-{item_id}"):
+                    try:
+                        orch.decide_scope_item(
+                            project.id, item_id, "adr", "approved", decision_by,
+                            reason_code="scope_accepted",
+                            reason_text=f"Approved for current program scope",
+                        )
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(str(exc))
+            with col2:
+                if st.button("Defer", key=f"scope-defer-{item_id}"):
+                    st.session_state[f"defer-form-{item_id}"] = True
+            with col3:
+                if st.button("Reject", key=f"scope-reject-{item_id}"):
+                    st.session_state[f"reject-form-{item_id}"] = True
+
+            if st.session_state.get(f"defer-form-{item_id}"):
+                with st.form(f"defer-{item_id}"):
+                    reason_text = st.text_area("Deferral reason (required)", key=f"defer-text-{item_id}")
+                    if st.form_submit_button("Confirm defer"):
+                        if reason_text.strip():
+                            orch.decide_scope_item(
+                                project.id, item_id, "adr", "deferred", decision_by,
+                                reason_code="scope_defer",
+                                reason_text=reason_text,
+                            )
+                            st.session_state.pop(f"defer-form-{item_id}", None)
+                            st.rerun()
+                        else:
+                            st.error("Reason required.")
+
+            if st.session_state.get(f"reject-form-{item_id}"):
+                with st.form(f"reject-{item_id}"):
+                    reason_code = st.selectbox("Reason", GATE_REASON_CODES, key=f"rej-code-{item_id}")
+                    reason_text = st.text_area("Rejection detail", key=f"rej-text-{item_id}")
+                    if st.form_submit_button("Confirm reject"):
+                        if reason_text.strip():
+                            orch.decide_scope_item(
+                                project.id, item_id, "adr", "rejected", decision_by,
+                                reason_code=reason_code,
+                                reason_text=reason_text,
+                            )
+                            st.session_state.pop(f"reject-form-{item_id}", None)
+                            st.rerun()
+                        else:
+                            st.error("Detail required.")
+
+
 def render_as_is_to_be(project: MigrationProject) -> None:
     st.subheader("AS-IS → TO-BE summary")
     st.caption(
@@ -234,18 +317,22 @@ def render_as_is_to_be(project: MigrationProject) -> None:
         st.info("Run **recommend** to generate ADRs with AS-IS / TO-BE previews.")
         return
 
-    rows = [
-        {
-            "adr": adr.get("title"),
-            "mandatory": adr.get("mandatory", False),
-            "confidence": adr.get("confidence"),
-            "as_is": adr.get("as_is_summary", "—"),
-            "to_be": adr.get("to_be_preview", "—"),
-            "benefit": adr.get("benefit_if_accepted", "—"),
-            "risk_if_rejected": adr.get("risk_if_rejected", "—"),
-        }
-        for adr in adrs
-    ]
+    rows = []
+    for adr in adrs:
+        item_id = _adr_item_id(adr)
+        decision = next((d for d in project.item_decisions() if d.item_id == item_id), None)
+        rows.append(
+            {
+                "adr": adr.get("title"),
+                "mandatory": adr.get("mandatory", False),
+                "scope_decision": decision.decision if decision else "—",
+                "confidence": adr.get("confidence"),
+                "as_is": adr.get("as_is_summary", "—"),
+                "to_be": adr.get("to_be_preview", "—"),
+                "benefit": adr.get("benefit_if_accepted", "—"),
+                "risk_if_rejected": adr.get("risk_if_rejected", "—"),
+            }
+        )
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
@@ -257,10 +344,11 @@ def render_vv_matrix(project: MigrationProject) -> None:
         st.info("Capability matrix is generated when **recommend** runs (after ingest evidence).")
         return
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Capabilities", summary.get("total_capabilities", 0))
     c2.metric("Mapped", summary.get("mapped", 0))
-    c3.metric("Coverage", f"{summary.get('coverage_pct', 0)}%")
+    c3.metric("Deferred", summary.get("deferred", 0))
+    c4.metric("Coverage", f"{summary.get('coverage_pct', 0)}%")
 
     gaps = [row for row in matrix if row.get("status") == "gap"]
     if gaps:
@@ -330,6 +418,8 @@ def render_governance_panel(
     render_waiver_registry(project)
 
     if role_allows(role, "adrs"):
+        render_pilot_scope_wizard(orch, project)
+        render_scope_item_decisions(orch, project)
         render_as_is_to_be(project)
 
     if role_allows(role, "vv"):

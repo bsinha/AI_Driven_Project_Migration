@@ -491,6 +491,12 @@ def _short_service_label(service_id: str) -> str:
     return service_id.replace("-service", "")
 
 
+def _normalize_sankey_target(target: str) -> str:
+    if target.startswith("Extract "):
+        return target[8:]
+    return target
+
+
 def _migration_edge_traces(
     edges: list[tuple[str, str]],
     positions: dict[str, tuple[float, float]],
@@ -636,7 +642,7 @@ def build_plotly_side_by_side_transition(
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         height=max(height, int(y_cursor * 28 + 80)),
-        title="AS-IS → TO-BE transition (side-by-side)",
+        title="AS-IS → TO-BE architecture comparison",
         annotations=[
             dict(x=-3.0, y=1.02, xref="x", yref="paper", text="AS-IS", showarrow=False, font=dict(size=14)),
             dict(x=4.0, y=1.02, xref="x", yref="paper", text="TO-BE", showarrow=False, font=dict(size=14)),
@@ -668,8 +674,10 @@ def build_plotly_migration_sankey(
         if key not in label_index:
             label_index[key] = len(labels)
             display = label if len(label) <= 34 else f"{label[:31]}..."
+            if side == "tobe" and display.startswith("Extract "):
+                display = display[8:]
             prefix = "AS-IS" if side == "asis" else "TO-BE"
-            labels.append(f"{prefix} · {display}")
+            labels.append(f"{prefix}: {display}")
             node_sides.append(side)
         return label_index[key]
 
@@ -686,7 +694,7 @@ def build_plotly_migration_sankey(
 
     for edge in migration_edges:
         src_label = _short_service_label(str(edge["source"]))
-        tgt_label = str(edge["target"])
+        tgt_label = _normalize_sankey_target(str(edge["target"]))
         kind = str(edge.get("kind") or "adr")
         src_i = register(src_label, "asis")
         tgt_i = register(tgt_label, "tobe")
@@ -699,15 +707,17 @@ def build_plotly_migration_sankey(
     for i, side in enumerate(node_sides):
         if side == "asis":
             node_colors.append("rgb(55, 95, 138)")
-        elif labels[i].startswith("TO-BE · Unmapped"):
+        elif labels[i].startswith("TO-BE: Unmapped"):
             node_colors.append("rgb(120, 120, 120)")
         else:
             node_colors.append("rgb(52, 128, 72)")
 
     label_count = len(labels)
+    max_label_len = max((len(lbl) for lbl in labels), default=20)
+    side_margin = min(220, max(72, max_label_len * 5))
     fig = go.Figure(
         go.Sankey(
-            arrangement="snap",
+            arrangement="perpendicular",
             orientation="h",
             hoverlabel=dict(
                 bgcolor=plot_bgcolor,
@@ -715,11 +725,10 @@ def build_plotly_migration_sankey(
                 font=dict(color=label_color, size=13),
             ),
             node=dict(
-                label=[""] * label_count,
-                customdata=labels,
-                hovertemplate="<b>%{customdata}</b><extra></extra>",
-                pad=28,
-                thickness=24,
+                label=labels,
+                hovertemplate="<b>%{label}</b><extra></extra>",
+                pad=20,
+                thickness=20,
                 color=node_colors,
                 line=dict(color="rgba(80, 80, 80, 0.5)", width=0.6),
             ),
@@ -732,13 +741,14 @@ def build_plotly_migration_sankey(
         )
     )
     fig.update_layout(
-        title=dict(text="AS-IS → TO-BE migration flow", font=dict(size=16, color=label_color)),
+        title=dict(text="AS-IS → TO-BE consolidation flow", font=dict(size=16, color=label_color)),
         font=dict(size=14, color=label_color),
-        height=max(480, label_count * 36 + 120),
-        margin=dict(l=48, r=48, t=56, b=36),
+        height=max(480, label_count * 40 + 120),
+        margin=dict(l=side_margin, r=side_margin, t=56, b=36),
         paper_bgcolor=paper_bgcolor,
         plot_bgcolor=plot_bgcolor,
         template=None,
+        uirevision="migration-sankey",
     )
     return fig
 

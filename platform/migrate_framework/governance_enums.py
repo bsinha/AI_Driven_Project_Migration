@@ -38,6 +38,10 @@ GATE_REASON_CODES: list[str] = sorted(
     set(GATE_APPROVE_REASON_CODES + GATE_REJECT_REASON_CODES + GATE_WAIVE_REASON_CODES)
 )
 
+ITEM_DECISION_STATUSES: list[str] = ["approved", "deferred", "rejected"]
+SMELL_DECISION_STATUSES: list[str] = ["open", "accepted", "deferred"]
+ITEM_TYPES: list[str] = ["adr", "bounded_context", "smell", "plan_phase"]
+
 
 class GateDecisionStatus(str, Enum):
     """Human gate decision lifecycle."""

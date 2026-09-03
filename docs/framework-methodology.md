@@ -27,6 +27,13 @@ Rejection = withhold approval and re-run upstream stages (e.g. re-hypothesize, e
 - **Within a phase:** rejected hypothesis → refine evidence → re-hypothesize → recommend again
 - **Across phases:** complete Phase N playbook → validate (re-diagnose) → Phase N+1 pipeline run
 - **Feedback loop:** validation failure → re-diagnose or re-plan before next cutover
+- **Scoped pilot:** per-ADR approve / defer via `item_decisions`; deferred ADRs remain AS-IS until a later wave
+- **Smell exceptions:** per-smell accept / defer via `smell_decisions`; accepted smells stay visible in diagnose but are excluded from planning
+- **Phase snapshots:** `phase_snapshots` metadata stores eight-stage metrics per program phase for readiness scoring
+
+CLI: `scope-decide`, `scope-pilot`, `scope-decide-batch`, `smell-decide`, `smell-decide-batch`, `phase-set-contexts`, `phase-close`.
+
+**Streamlit UI parity:** Governance → Pilot scope wizard (batch ADRs); Phases → context assignment, phase close, batch smell decisions; per-item controls remain for fine-grained edits.
 
 ## Onboarding a new codebase
 

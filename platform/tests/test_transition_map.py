@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from migrate_framework.ui.transition_map import (
+    build_as_is_architecture_rows,
     build_migration_edges,
     build_migration_legend_rows,
+    build_to_be_architecture_rows,
     build_transition_summary_metrics,
+    collapse_sankey_edges,
+    resolve_plan_phases,
 )
 from migrate_framework.ui.visualizations import (
     build_plotly_migration_sankey,
@@ -105,6 +109,37 @@ def test_transition_summary_metrics() -> None:
     assert metrics["consolidation_ratio"] == 2.0
 
 
+def test_architecture_comparison_rows() -> None:
+    contexts = _sample_contexts()
+    adrs = _sample_adrs()
+    as_is = build_as_is_architecture_rows(contexts)
+    to_be = build_to_be_architecture_rows(adrs, [])
+    assert len(as_is) == 2
+    assert as_is[0]["deployable_count"] == 3
+    assert len(to_be) == 2
+    assert {r["bounded_context"] for r in to_be} == {"Customer Management", "Account Management"}
+    customer = next(r for r in to_be if r["bounded_context"] == "Customer Management")
+    assert customer["as_is_sources"] == 3
+    assert customer["to_be_deployables"] == 1
+
+
+def test_resolve_plan_phases_list() -> None:
+    phases = [{"name": "Phase 1"}]
+    assert resolve_plan_phases({"plan": phases}) == phases
+
+
+def test_collapse_sankey_edges_prefers_adr() -> None:
+    edges = [
+        {"source": "svc-a", "target": "Ctx", "kind": "phase"},
+        {"source": "svc-a", "target": "Ctx", "kind": "adr"},
+        {"source": "svc-b", "target": "Unmapped", "kind": "unmapped"},
+    ]
+    collapsed = collapse_sankey_edges(edges)
+    assert len(collapsed) == 2
+    by_src = {e["source"]: e for e in collapsed}
+    assert by_src["svc-a"]["kind"] == "adr"
+
+
 def test_side_by_side_transition_figure() -> None:
     contexts = _sample_contexts()
     edges = build_migration_edges(contexts, _sample_adrs(), [])
@@ -116,7 +151,8 @@ def test_side_by_side_transition_figure() -> None:
 
 def test_migration_sankey_figure() -> None:
     contexts = _sample_contexts()
-    edges = build_migration_edges(contexts, _sample_adrs(), [])
+    edges = collapse_sankey_edges(build_migration_edges(contexts, _sample_adrs(), []))
     fig = build_plotly_migration_sankey(edges)
     assert len(fig.data) == 1
     assert fig.data[0].link.value
+    assert fig.data[0].node.label

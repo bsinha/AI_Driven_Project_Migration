@@ -25,6 +25,16 @@ from migrate_framework.pipeline.governance import (
     record_gate_decision,
     save_adr_version,
 )
+from migrate_framework.pipeline.phase_snapshot import close_phase, snapshot_stage, store_diagnose_baseline
+from migrate_framework.pipeline.scope import (
+    decide_item,
+    decide_smell,
+    enrich_diagnosis_with_decisions,
+    init_program_phases,
+    recommend_gate_clear,
+    resolve_active_scope,
+    set_phase_contexts,
+)
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.reporting.ingest_evidence import summarize_ingest_evidence
 from migrate_framework.vv.capability_matrix import build_capability_matrix, matrix_summary
@@ -50,6 +60,7 @@ class PipelineOrchestrator:
             landscape_path=landscape_path,
             approval_gates=MigrationProject.default_gates(),
         )
+        init_program_phases(project)
         self.store.save_project(project)
         return project
 
@@ -70,6 +81,11 @@ class PipelineOrchestrator:
         blocked, message = confidence_blocks_approval(project, stage)
         if blocked and not allow_low_confidence:
             raise ValueError(message)
+
+        if stage == PipelineStage.RECOMMEND:
+            cleared, scope_msg = recommend_gate_clear(project)
+            if not cleared:
+                raise ValueError(scope_msg)
 
         record_gate_decision(
             project,
@@ -179,6 +195,123 @@ class PipelineOrchestrator:
         self.store.save_project(project)
         return project
 
+    def decide_scope_item(
+        self,
+        project_id: str,
+        item_id: str,
+        item_type: str,
+        decision: str,
+        decision_by: str = "operator",
+        reason_code: str | None = None,
+        reason_text: str | None = None,
+        scope_phase: int | None = None,
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        decide_item(
+            project,
+            item_id,
+            item_type,
+            decision,
+            decision_by,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            scope_phase=scope_phase,
+        )
+        self.store.save_project(project)
+        return project
+
+    def decide_scope_items(
+        self,
+        project_id: str,
+        decisions: list[dict[str, Any]],
+        decision_by: str = "operator",
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        for entry in decisions:
+            decide_item(
+                project,
+                entry["item_id"],
+                entry["item_type"],
+                entry["decision"],
+                decision_by,
+                reason_code=entry.get("reason_code"),
+                reason_text=entry.get("reason_text"),
+                scope_phase=entry.get("scope_phase"),
+            )
+        self.store.save_project(project)
+        return project
+
+    def decide_smell_item(
+        self,
+        project_id: str,
+        smell_key: str,
+        smell_type: str,
+        decision: str,
+        decision_by: str = "operator",
+        affected_services: list[str] | None = None,
+        reason_code: str | None = None,
+        reason_text: str | None = None,
+        revisit_phase: int | None = None,
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        decide_smell(
+            project,
+            smell_key,
+            smell_type,
+            decision,
+            decision_by,
+            affected_services=affected_services,
+            reason_code=reason_code,
+            reason_text=reason_text,
+            revisit_phase=revisit_phase,
+        )
+        self.store.save_project(project)
+        return project
+
+    def decide_smell_items(
+        self,
+        project_id: str,
+        decisions: list[dict[str, Any]],
+        decision_by: str = "operator",
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        for entry in decisions:
+            decide_smell(
+                project,
+                entry["smell_key"],
+                entry["smell_type"],
+                entry["decision"],
+                decision_by,
+                affected_services=entry.get("affected_services"),
+                reason_code=entry.get("reason_code"),
+                reason_text=entry.get("reason_text"),
+                revisit_phase=entry.get("revisit_phase"),
+            )
+        self.store.save_project(project)
+        return project
+
+    def set_program_phase_contexts(
+        self,
+        project_id: str,
+        phase: int,
+        context_names: list[str],
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        set_phase_contexts(project, phase, context_names)
+        self.store.save_project(project)
+        return project
+
+    def close_program_phase(
+        self,
+        project_id: str,
+        phase: int,
+        closed_by: str = "operator",
+    ) -> MigrationProject:
+        project = self.store.load_project(project_id)
+        close_phase(project, phase, closed_by)
+        self.store.save_project(project)
+        return project
+
     def can_run(self, project: MigrationProject, stage: PipelineStage) -> tuple[bool, str]:
         idx = PIPELINE_STAGE_ORDER.index(stage)
         if idx > 0:
@@ -208,6 +341,10 @@ class PipelineOrchestrator:
         run.completed_at = datetime.now(timezone.utc)
         run.summary = summary
         project.current_stage = stage
+        init_program_phases(project)
+        snapshot_stage(project, stage)
+        if stage == PipelineStage.DIAGNOSE and not project.metadata.get("diagnosis_baseline"):
+            store_diagnose_baseline(project)
         self.store.save_project(project)
         return project
 
@@ -255,9 +392,11 @@ class PipelineOrchestrator:
 
     def _run_diagnose(self, project: MigrationProject) -> dict[str, Any]:
         result = diagnose(project.evidence, project.landscape)
+        result = enrich_diagnosis_with_decisions(project, result)
         self.store.save_artifact(project, PipelineStage.DIAGNOSE, "diagnosis", result)
         project.metadata["diagnosis"] = result
-        return {"smell_count": len(result.get("smells", [])), **result.get("metrics", {})}
+        open_smells = [s for s in result.get("smells", []) if s.get("governance_status", "open") == "open"]
+        return {"smell_count": len(open_smells), **result.get("metrics", {})}
 
     def _run_hypothesize(self, project: MigrationProject) -> dict[str, Any]:
         diagnosis = project.metadata.get("diagnosis") or diagnose(project.evidence, project.landscape)
@@ -303,11 +442,13 @@ class PipelineOrchestrator:
     def _run_plan(self, project: MigrationProject) -> dict[str, Any]:
         adrs = project.metadata.get("adrs", [])
         diagnosis = project.metadata.get("diagnosis", {})
-        phases = plan_migration(adrs, project.landscape, diagnosis)
+        active_scope = resolve_active_scope(project)
+        phases = plan_migration(adrs, project.landscape, diagnosis, active_scope=active_scope)
         project.evidence.extend(phases_to_evidence(phases))
         self.store.save_artifact(project, PipelineStage.PLAN, "migration-plan", phases)
         project.metadata["plan"] = phases
-        return {"phase_count": len(phases)}
+        active_count = sum(1 for p in phases if p.get("status") != "deferred")
+        return {"phase_count": len(phases), "active_phase_count": active_count}
 
     def _run_playbook(self, project: MigrationProject) -> dict[str, Any]:
         phases = project.metadata.get("plan", [])

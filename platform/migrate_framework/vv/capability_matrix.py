@@ -56,16 +56,34 @@ def _as_is_from_evidence(evidence: list[EvidenceItem]) -> list[dict[str, Any]]:
 
 
 def _to_be_mapping(project: MigrationProject) -> dict[str, str]:
+    from migrate_framework.pipeline.scope import resolve_active_scope
+
     mapping: dict[str, str] = {}
-    for phase in project.metadata.get("plan", []):
-        context = phase.get("name", "")
-        for svc in phase.get("services", []):
-            mapping[str(svc)] = context
-    for adr in project.metadata.get("adrs", []):
+    scope = resolve_active_scope(project)
+    for adr in scope.get("adrs", []):
         ctx = adr.get("target_context", "")
         for svc in adr.get("affected_services", []):
             mapping[str(svc)] = ctx
+
+    for phase in project.metadata.get("plan", []):
+        if phase.get("status") == "deferred":
+            continue
+        context = phase.get("name", "").replace("Extract ", "")
+        for svc in phase.get("services", []):
+            mapping[str(svc)] = context
     return mapping
+
+
+def _service_deferred(project: MigrationProject, service: str) -> bool:
+    from migrate_framework.pipeline.scope import deferred_adrs, resolve_active_scope
+
+    scope = resolve_active_scope(project)
+    if service in scope.get("services", []):
+        return False
+    for adr in deferred_adrs(project):
+        if service in adr.get("affected_services", []):
+            return True
+    return False
 
 
 def build_capability_matrix(project: MigrationProject) -> list[dict[str, Any]]:
@@ -82,8 +100,12 @@ def build_capability_matrix(project: MigrationProject) -> list[dict[str, Any]]:
     matrix: list[dict[str, Any]] = []
     for row in as_is_rows:
         service = row["as_is_service"]
-        to_be_context = to_be_map.get(service, "unmapped")
-        status = "mapped" if to_be_context != "unmapped" else "gap"
+        if _service_deferred(project, service):
+            status = "deferred"
+            to_be_context = "deferred (AS-IS retained)"
+        else:
+            to_be_context = to_be_map.get(service, "unmapped")
+            status = "mapped" if to_be_context != "unmapped" else "gap"
         matrix.append(
             {
                 **row,
@@ -102,9 +124,11 @@ def matrix_summary(matrix: list[dict[str, Any]]) -> dict[str, Any]:
     total = len(matrix)
     mapped = sum(1 for row in matrix if row.get("status") == "mapped")
     gaps = sum(1 for row in matrix if row.get("status") == "gap")
+    deferred = sum(1 for row in matrix if row.get("status") == "deferred")
     return {
         "total_capabilities": total,
         "mapped": mapped,
         "gaps": gaps,
+        "deferred": deferred,
         "coverage_pct": round((mapped / total) * 100, 1) if total else 0.0,
     }
