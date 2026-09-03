@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from migrate_framework.branding import PRODUCT_NAME
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-app = FastAPI(title="Migrate Framework API", version="0.1.0")
+app = FastAPI(title=f"{PRODUCT_NAME} API", version="0.1.0")
 orch = PipelineOrchestrator()
 store = ProjectStore()
 

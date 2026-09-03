@@ -14,7 +14,6 @@ from migrate_framework.analysis.smell_catalog import smell_definition
 from migrate_framework.models import PIPELINE_STAGE_ORDER
 from migrate_framework.reporting.ingest_evidence import SOURCE_LABELS, summarize_ingest_evidence
 
-
 @st.cache_data(show_spinner=False)
 def load_artifact_file(path: str, mtime_ns: int) -> Any:
     """Load JSON or YAML artifact; mtime_ns busts cache when the file changes."""
@@ -376,7 +375,7 @@ def _is_deployable_service_node(node: dict[str, Any]) -> bool:
     return node_id.endswith("-service") or attrs.get("port") is not None
 
 
-def render_service_graph(data: dict[str, Any]) -> None:
+def render_service_graph(data: dict[str, Any], *, chart_key: str = "artifact-graph-service-graph") -> None:
     metrics = data.get("metrics", {})
     nodes = data.get("nodes", [])
     edges = data.get("edges", [])
@@ -392,6 +391,17 @@ def render_service_graph(data: dict[str, Any]) -> None:
     c2.metric("Graph edges", metrics.get("edge_count", len(edges)))
     c3.metric("Deployable services", len(deployable_nodes))
     c4.metric("Density", f"{metrics.get('density', 0):.4f}")
+
+    try:
+        from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
+
+        render_interactive_service_graph(
+            chart_key,
+            data,
+            color_mode=st.session_state.get("graph_color_mode", "risk"),
+        )
+    except ImportError:
+        pass
 
     services = [
         {
@@ -571,7 +581,12 @@ STAGE_TITLES = _STAGE_TITLES
 
 def render_stage_gate_review(stage_key: str, artifact_index: dict[str, list[dict[str, Any]]]) -> bool:
     """Compact stage output for approval gate review (no raw file popovers)."""
-    return _render_stage_body(stage_key, artifact_index, show_raw_files=False)
+    return _render_stage_body(
+        stage_key,
+        artifact_index,
+        show_raw_files=False,
+        widget_key_prefix="gate-review",
+    )
 
 
 def _render_stage_body(
@@ -579,6 +594,7 @@ def _render_stage_body(
     artifact_index: dict[str, list[dict[str, Any]]],
     *,
     show_raw_files: bool = True,
+    widget_key_prefix: str = "artifact",
 ) -> bool:
     entries = artifact_index.get(stage_key, [])
     if not entries:
@@ -591,7 +607,13 @@ def _render_stage_body(
     if primary and renderer and not (stage_key == "ingest" and evidence_entry):
         data = _load(primary.get("path", ""))
         if data is not None:
-            renderer(data)
+            if renderer is render_service_graph:
+                renderer(
+                    data,
+                    chart_key=f"{widget_key_prefix}-{stage_key}-service-graph",
+                )
+            else:
+                renderer(data)
         else:
             st.warning(f"Could not load {primary.get('name')} artifact.")
 
@@ -622,7 +644,7 @@ def _render_stage_body(
 
 def render_stage_artifacts(stage_key: str, artifact_index: dict[str, list[dict[str, Any]]]) -> None:
     """Render readable content for a single pipeline stage."""
-    if not _render_stage_body(stage_key, artifact_index):
+    if not _render_stage_body(stage_key, artifact_index, widget_key_prefix="pipeline-stage"):
         st.info(f"No **{_STAGE_TITLES.get(stage_key, stage_key)}** output yet. Run this stage to generate artifacts.")
 
 
@@ -644,7 +666,7 @@ def render_artifacts(artifact_index: dict[str, list[dict[str, Any]]]) -> None:
             f"{_STAGE_TITLES.get(stage_key, stage_key.title())} ({len(entries)} file(s))",
             expanded=stage_key in {"recommend", "plan", "playbook"},
         ):
-            _render_stage_body(stage_key, artifact_index)
+            _render_stage_body(stage_key, artifact_index, widget_key_prefix=f"view-all-{stage_key}")
 
     if not rendered:
         st.info("No artifacts saved yet. Run pipeline stages to generate outputs.")

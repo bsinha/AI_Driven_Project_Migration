@@ -7,6 +7,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+from migrate_framework.branding import PRODUCT_NAME, PRODUCT_TAGLINE
 from migrate_framework.models import (
     PIPELINE_STAGE_ORDER,
     ApprovalGate,
@@ -17,6 +18,16 @@ from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 from migrate_framework.ui.artifact_views import STAGE_TITLES, render_artifacts, render_stage_artifacts
 from migrate_framework.ui.gate_display import approval_gates_for_display, gate_status_display
+from migrate_framework.ui.dashboard import render_migration_dashboard
+from migrate_framework.ui.guided_review import render_guided_review
+from migrate_framework.ui.landscape_overview import render_landscape_overview
+from migrate_framework.ui.navigation import (
+    init_navigation_state,
+    MAIN_TABS,
+    build_breadcrumb_parts,
+    render_breadcrumb,
+    render_classification_filters,
+)
 from migrate_framework.ui.governance_panel import render_governance_panel, render_role_selector, role_allows
 from migrate_framework.ui.playbook_execution import render_playbook_execution
 from migrate_framework.pipeline.governance import stage_summary_metrics
@@ -173,12 +184,14 @@ def _render_all_content(project: MigrationProject) -> None:
     render_artifacts(project.metadata.get("artifact_index", {}))
 
 
-st.set_page_config(page_title="Migrate Framework", layout="wide")
+st.set_page_config(page_title=PRODUCT_NAME, layout="wide")
 _init_session_state()
 
 ui_role = render_role_selector()
+init_navigation_state(ui_role)
 
-st.title("Microservice → DDD Migration Framework")
+st.title(PRODUCT_NAME)
+st.caption(PRODUCT_TAGLINE)
 
 store = ProjectStore()
 orch = PipelineOrchestrator()
@@ -237,60 +250,99 @@ else:
 
 if project:
     completed = _completed_stages(project)
+    from migrate_framework.ui.landscape_overview import _ingest_summary as load_ingest_summary
 
-    st.subheader("Pipeline Progress")
-    _render_pipeline_selector(completed, project.current_stage)
-
-    st.subheader("Run Stage")
-    rc1, rc2, rc3, rc4 = st.columns([1.2, 1.2, 1, 1])
-    with rc1:
-        stage_to_run = st.selectbox("Stage", [s.value for s in PIPELINE_STAGE_ORDER])
-    with rc2:
-        through = st.selectbox("Run through (optional)", ["—"] + [s.value for s in PIPELINE_STAGE_ORDER])
-    with rc3:
-        auto_approve = st.checkbox("Auto-approve gates")
-    with rc4:
-        st.write("")
-        run_clicked = st.button("Run pipeline", use_container_width=True)
-
-    if run_clicked:
-        try:
-            if through != "—":
-                orch.run_through(project.id, PipelineStage(through), auto_approve=auto_approve)
-            else:
-                orch.run_stage(project.id, PipelineStage(stage_to_run))
-            st.success("Stage completed")
-            st.rerun()
-        except Exception as exc:
-            st.error(str(exc))
-
-    with st.expander("Approval gates", expanded=False):
-        st.caption(
-            "Pipeline progress (✓) means the stage **ran**. "
-            "**Pending sign-off** means a required human decision is still needed before later stages. "
-            "Review stage output in **Governance → Approval gates** below before Approve / Reject / Waive."
+    ingest_data = load_ingest_summary(project)
+    context_options = [
+        str(ctx["context"]) for ctx in (ingest_data.get("bounded_contexts") or []) if ctx.get("context")
+    ]
+    render_classification_filters(context_options)
+    render_breadcrumb(
+        build_breadcrumb_parts(
+            project.name,
+            stage_label=st.session_state.main_tab,
+            filter_context=st.session_state.get("filter_context", "All"),
         )
-        for gate in approval_gates_for_display(project):
-            c1, c2 = st.columns([2, 3])
-            with c1:
-                role = "required" if gate.required else "optional"
-                st.write(f"**{gate.stage.value}** ({role})")
-            with c2:
-                status_label, status_help = _gate_status_display(gate, completed)
-                st.markdown(status_label, help=status_help)
+    )
 
-    st.divider()
-    render_governance_panel(orch, project, ui_role, completed)
+    tab_labels = MAIN_TABS.copy()
+    if not role_allows(ui_role, "playbook"):
+        tab_labels = [t for t in tab_labels if t != "Playbook"]
+    if not role_allows(ui_role, "gates"):
+        tab_labels = [t for t in tab_labels if t != "Governance"]
 
-    st.divider()
-    if role_allows(ui_role, "playbook") and PipelineStage.PLAYBOOK in completed:
-        render_playbook_execution(project, store)
+    tabs = st.tabs(tab_labels)
+    tab_map = {label: tab for label, tab in zip(tab_labels, tabs, strict=False)}
 
-    st.divider()
-    if st.session_state.pipeline_content_view == "stage":
-        _render_stage_content(orch, project, completed)
-    else:
-        _render_all_content(project)
+    if "Dashboard" in tab_map:
+        with tab_map["Dashboard"]:
+            render_migration_dashboard(project, completed)
+
+    if "Guided Review" in tab_map:
+        with tab_map["Guided Review"]:
+            render_guided_review(orch, project, completed)
+
+    if "Landscape" in tab_map:
+        with tab_map["Landscape"]:
+            render_landscape_overview(project, completed)
+
+    if "Pipeline" in tab_map:
+        with tab_map["Pipeline"]:
+            st.subheader("Pipeline Progress")
+            _render_pipeline_selector(completed, project.current_stage)
+
+            st.subheader("Run Stage")
+            rc1, rc2, rc3, rc4 = st.columns([1.2, 1.2, 1, 1])
+            with rc1:
+                stage_to_run = st.selectbox("Stage", [s.value for s in PIPELINE_STAGE_ORDER])
+            with rc2:
+                through = st.selectbox("Run through (optional)", ["—"] + [s.value for s in PIPELINE_STAGE_ORDER])
+            with rc3:
+                auto_approve = st.checkbox("Auto-approve gates")
+            with rc4:
+                st.write("")
+                run_clicked = st.button("Run pipeline", use_container_width=True)
+
+            if run_clicked:
+                try:
+                    if through != "—":
+                        orch.run_through(project.id, PipelineStage(through), auto_approve=auto_approve)
+                    else:
+                        orch.run_stage(project.id, PipelineStage(stage_to_run))
+                    st.success("Stage completed")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+
+            with st.expander("Approval gates summary", expanded=False):
+                st.caption(
+                    "Full gate review with evidence is in the **Governance** tab."
+                )
+                for gate in approval_gates_for_display(project):
+                    c1, c2 = st.columns([2, 3])
+                    with c1:
+                        role = "required" if gate.required else "optional"
+                        st.write(f"**{gate.stage.value}** ({role})")
+                    with c2:
+                        status_label, status_help = _gate_status_display(gate, completed)
+                        st.markdown(status_label, help=status_help)
+
+            st.divider()
+            if st.session_state.pipeline_content_view == "stage":
+                _render_stage_content(orch, project, completed)
+            else:
+                _render_all_content(project)
+
+    if "Governance" in tab_map:
+        with tab_map["Governance"]:
+            render_governance_panel(orch, project, ui_role, completed)
+
+    if "Playbook" in tab_map:
+        with tab_map["Playbook"]:
+            if PipelineStage.PLAYBOOK in completed:
+                render_playbook_execution(project, store)
+            else:
+                st.info("Run the **playbook** stage to enable guided execution.")
 
 st.sidebar.header("Stakeholder report")
 st.sidebar.caption("Download a summary of pipeline findings, ADRs, and migration plan.")

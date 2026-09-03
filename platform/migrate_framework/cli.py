@@ -9,7 +9,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from migrate_framework.governance_enums import GATE_REASON_CODES
+from migrate_framework.branding import PRODUCT_NAME, PRODUCT_TAGLINE
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
@@ -157,7 +157,10 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="migrate-framework", description="Microservice-to-DDD migration framework")
+    parser = argparse.ArgumentParser(
+        prog="migrate-framework",
+        description=f"{PRODUCT_NAME} — {PRODUCT_TAGLINE}",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_p = sub.add_parser("init", help="Initialize a migration project")

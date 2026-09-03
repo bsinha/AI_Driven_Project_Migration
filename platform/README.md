@@ -1,17 +1,12 @@
-# Migrate Framework
+# Context Atlas
 
-AI-driven microservice-to-DDD migration pipeline with 8 stages: discover, ingest, graph, diagnose, hypothesize, recommend, plan, playbook.
+Evidence-led estate assessment pipeline with 8 stages: discover, ingest, graph, diagnose, hypothesize, recommend, plan, playbook.
+
+Python package and CLI remain `migrate_framework` / `migrate-framework` for compatibility.
 
 ## Quick start
 
 ```bash
-cd platform
 pip install -e ".[dev]"
-migrate-framework init --name "EuroSA Bank" --source ../sample-bank --landscape ../sample-bank/landscape-manifest.yaml
-```
-
-Or run the full pipeline:
-
-```powershell
-.\scripts\run_pipeline.ps1
+streamlit run migrate_framework/ui/app.py
 ```

@@ -1,6 +1,6 @@
-# AI-Driven Granular-to-Bounded-Context Migration POC
+# Context Atlas
 
-Technology-agnostic **AI-assisted migration framework** with an 8-stage gated pipeline, demonstrated on EuroSA Bank (Java/Spring Boot granular microservices).
+Evidence-led estate assessment POC — 8-stage gated pipeline demonstrated on EuroSA Bank (Java/Spring Boot granular services).
 
 ## Quick start
 

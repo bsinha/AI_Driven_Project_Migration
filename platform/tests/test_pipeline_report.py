@@ -1,5 +1,6 @@
 """Tests for pipeline report generation."""
 
+from migrate_framework.branding import PRODUCT_NAME
 from migrate_framework.models import MigrationProject, PipelineStage, StageRun
 from migrate_framework.reporting.pipeline_report import (
     generate_html_report,
@@ -53,6 +54,7 @@ def test_generate_markdown_report_includes_core_sections() -> None:
     assert "## Architecture Health" in report
     assert "customer-identity-service" in report
     assert "## Migration Hypotheses" in report
+    assert PRODUCT_NAME in report
     assert report_filename(project, "md").endswith(".md")
 
 
@@ -64,4 +66,5 @@ def test_generate_html_report_is_html_document() -> None:
     )
     html_report = generate_html_report(project)
     assert html_report.startswith("<!DOCTYPE html>")
-    assert "<title>Migration Report - Demo</title>" in html_report
+    assert PRODUCT_NAME in html_report
+    assert "Demo" in html_report
