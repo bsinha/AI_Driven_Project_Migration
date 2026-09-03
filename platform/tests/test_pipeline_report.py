@@ -68,3 +68,8 @@ def test_generate_html_report_is_html_document() -> None:
     assert html_report.startswith("<!DOCTYPE html>")
     assert PRODUCT_NAME in html_report
     assert "Demo" in html_report
+    assert "background-color: #ffffff" in html_report
+    assert 'color-scheme: light' in html_report
+
+    embed_report = generate_html_report(project, embed=True)
+    assert "background-color: #ffffff !important" in embed_report

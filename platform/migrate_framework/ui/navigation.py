@@ -6,7 +6,7 @@ import streamlit as st
 
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 
-MAIN_TABS = ["Dashboard", "Guided Review", "Landscape", "Pipeline", "Phases", "Governance", "Playbook"]
+MAIN_TABS = ["Dashboard", "Guided Review", "Landscape", "Pipeline", "Phases", "Governance", "Report", "Playbook"]
 
 ROLE_DEFAULT_TAB: dict[str, str] = {
     "architect": "Guided Review",

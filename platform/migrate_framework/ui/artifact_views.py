@@ -376,10 +376,11 @@ def _is_deployable_service_node(node: dict[str, Any]) -> bool:
 
 
 def render_service_graph(data: dict[str, Any], *, chart_key: str = "artifact-graph-service-graph") -> None:
-    metrics = data.get("metrics", {})
+    from migrate_framework.ui.interactive_graphs import GRAPH_METRICS_CAPTION, graph_metric_summary
+
+    summary = graph_metric_summary(data)
     nodes = data.get("nodes", [])
     edges = data.get("edges", [])
-
     deployable_nodes = [node for node in nodes if _is_deployable_service_node(node)]
     dependency_nodes = [
         node for node in nodes
@@ -387,10 +388,11 @@ def render_service_graph(data: dict[str, Any], *, chart_key: str = "artifact-gra
     ]
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Graph nodes", metrics.get("node_count", len(nodes)))
-    c2.metric("Graph edges", metrics.get("edge_count", len(edges)))
-    c3.metric("Deployable services", len(deployable_nodes))
-    c4.metric("Density", f"{metrics.get('density', 0):.4f}")
+    c1.metric("Deployable services", summary["deployable_services"])
+    c2.metric("Knowledge graph nodes", summary["knowledge_graph_nodes"])
+    c3.metric("Knowledge graph edges", summary["knowledge_graph_edges"])
+    c4.metric("Service density", f"{summary['density']:.4f}")
+    st.caption(GRAPH_METRICS_CAPTION)
 
     try:
         from migrate_framework.ui.interactive_graphs import render_interactive_service_graph

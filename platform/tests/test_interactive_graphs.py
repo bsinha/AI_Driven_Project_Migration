@@ -10,6 +10,7 @@ import pytest
 from migrate_framework.ui.interactive_graphs import (
     build_cytoscape_service_graph_html,
     build_radial_mindmap_html,
+    graph_metric_summary,
 )
 
 
@@ -21,6 +22,28 @@ def graph_payload() -> dict:
         pytest.skip("sample graph artifact missing")
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def test_graph_metric_summary_separates_deployables_from_knowledge_graph() -> None:
+    payload = {
+        "nodes": [
+            {"id": "a-service", "kind": "service", "attributes": {"evidence_type": "service", "port": 8080}},
+            {"id": "b-service", "kind": "service", "attributes": {"evidence_type": "service", "port": 8081}},
+            {"id": "db:shared", "kind": "database", "attributes": {"evidence_type": "database"}},
+            {"id": "api:/health", "kind": "api", "attributes": {"evidence_type": "api_endpoint"}},
+        ],
+        "edges": [{"source": "a-service", "target": "db:shared", "kind": "stores_in"}],
+        "metrics": {
+            "node_count": 4,
+            "edge_count": 1,
+            "service_nodes": 2,
+            "density": 0.5,
+        },
+    }
+    summary = graph_metric_summary(payload)
+    assert summary["deployable_services"] == 2
+    assert summary["knowledge_graph_nodes"] == 4
+    assert summary["knowledge_graph_edges"] == 1
 
 
 def test_cytoscape_service_graph_contains_node_ids(graph_payload: dict) -> None:

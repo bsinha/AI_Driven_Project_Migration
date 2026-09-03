@@ -19,7 +19,6 @@ from migrate_framework.pipeline.scope import (
 )
 from migrate_framework.governance_enums import GATE_REASON_CODES
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
-from migrate_framework.reporting.pipeline_report import generate_markdown_report
 from migrate_framework.ui.gate_display import gate_expander_title, gate_status_display
 from migrate_framework.ui.gate_review import reason_codes_for_action, render_gate_review_context
 from migrate_framework.ui.scope_wizard import render_pilot_scope_wizard
@@ -365,9 +364,14 @@ def render_stage_analytics(project: MigrationProject) -> None:
 
 
 def render_embedded_report(project: MigrationProject) -> None:
-    st.subheader("Stakeholder report (preview)")
-    md = generate_markdown_report(project)
-    st.markdown(md[:12000] + ("\n\n…" if len(md) > 12000 else ""))
+    st.info("The full stakeholder report is available in the **Report** tab (with Markdown and HTML download).")
+    from migrate_framework.ui.stakeholder_report import _cached_report_content, _project_signature
+
+    report_md, _, _ = _cached_report_content(project.id, _project_signature(project))
+    preview_lines = report_md.splitlines()[:40]
+    st.markdown("\n".join(preview_lines))
+    if len(report_md.splitlines()) > 40:
+        st.caption("…truncated preview — open **Report** for the full document.")
 
 
 def _playbook_generated(project: MigrationProject) -> bool:

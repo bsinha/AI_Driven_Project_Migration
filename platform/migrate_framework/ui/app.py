@@ -32,12 +32,8 @@ from migrate_framework.ui.governance_panel import render_governance_panel, rende
 from migrate_framework.ui.phase_dashboard import render_phase_dashboard
 from migrate_framework.ui.playbook_execution import render_playbook_execution
 from migrate_framework.ui.smell_governance import render_smell_governance
+from migrate_framework.ui.stakeholder_report import render_stakeholder_report
 from migrate_framework.pipeline.governance import stage_summary_metrics
-from migrate_framework.reporting.pipeline_report import (
-    generate_html_report,
-    generate_markdown_report,
-    report_filename,
-)
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
@@ -207,8 +203,6 @@ st.title(PRODUCT_NAME)
 st.caption(PRODUCT_TAGLINE)
 
 project: MigrationProject | None = None
-report_md: str | None = None
-report_html: str | None = None
 
 if selected == "— new —":
     st.subheader("Initialize project")
@@ -232,9 +226,6 @@ else:
         st.markdown(f"**Source** `{_short_path(project.source_root, 64)}`")
     with meta[2]:
         st.markdown(f"**Stack** {project.tech_stack.primary_stack()}")
-
-    report_md = generate_markdown_report(project)
-    report_html = generate_html_report(project)
 
 if project:
     completed = _completed_stages(project)
@@ -334,6 +325,10 @@ if project:
         with tab_map["Governance"]:
             render_governance_panel(orch, project, ui_role, completed)
 
+    if "Report" in tab_map:
+        with tab_map["Report"]:
+            render_stakeholder_report(project)
+
     if "Playbook" in tab_map:
         with tab_map["Playbook"]:
             if PipelineStage.PLAYBOOK in completed:
@@ -342,19 +337,4 @@ if project:
                 st.info("Run the **playbook** stage to enable guided execution.")
 
 st.sidebar.header("Stakeholder report")
-st.sidebar.caption("Download a summary of pipeline findings, ADRs, and migration plan.")
-if project and report_md and report_html:
-    st.sidebar.download_button(
-        "Markdown report",
-        data=report_md,
-        file_name=report_filename(project, "md"),
-        mime="text/markdown",
-        use_container_width=True,
-    )
-    st.sidebar.download_button(
-        "HTML report",
-        data=report_html,
-        file_name=report_filename(project, "html"),
-        mime="text/html",
-        use_container_width=True,
-    )
+st.sidebar.caption("Open the **Report** tab to view and download the full assessment.")

@@ -10,6 +10,7 @@ import streamlit as st
 from migrate_framework.models import MigrationProject, PipelineStage
 from migrate_framework.pipeline.governance import stage_summary_metrics
 from migrate_framework.ui.taxonomy import classify_smell_risk, filter_entities, stage_visual_spec
+from migrate_framework.ui.interactive_graphs import GRAPH_METRICS_CAPTION, graph_metric_summary
 
 
 def _metric_cards(items: list[tuple[str, str]], columns: int = 4) -> None:
@@ -74,14 +75,14 @@ def render_stage_l1_summary(
         st.json(checklist)
 
     if "graph_metrics" in panels and graph_payload:
-        metrics = graph_payload.get("metrics") or {}
-        nodes = graph_payload.get("nodes") or []
-        edges = graph_payload.get("edges") or []
+        summary = graph_metric_summary(graph_payload)
         _metric_cards([
-            ("Nodes", str(metrics.get("node_count", len(nodes)))),
-            ("Edges", str(metrics.get("edge_count", len(edges)))),
-            ("Density", f"{metrics.get('density', 0):.4f}"),
+            ("Deployable services", str(summary["deployable_services"])),
+            ("Knowledge graph nodes", str(summary["knowledge_graph_nodes"])),
+            ("Knowledge graph edges", str(summary["knowledge_graph_edges"])),
+            ("Service density", f"{summary['density']:.4f}"),
         ])
+        st.caption(GRAPH_METRICS_CAPTION)
 
     if "node_kinds" in panels and graph_payload:
         kinds = Counter(n.get("kind", "—") for n in graph_payload.get("nodes") or [])

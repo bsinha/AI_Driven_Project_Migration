@@ -13,6 +13,26 @@ from migrate_framework.ui.visualizations import (
     _service_color,
 )
 
+GRAPH_METRICS_CAPTION = (
+    "The **service diagram** shows deployable microservices only. "
+    "**Knowledge graph** totals include databases, API endpoints, tables, bounded contexts, "
+    "teams, smells, and all evidence relationships."
+)
+
+
+def graph_metric_summary(graph_payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize L1/L2 graph metrics: diagram count vs full knowledge graph."""
+    metrics = graph_payload.get("metrics") or {}
+    nodes = graph_payload.get("nodes") or []
+    edges = graph_payload.get("edges") or []
+    deployable = sum(1 for node in nodes if _is_deployable_service_node(node))
+    return {
+        "deployable_services": metrics.get("service_nodes", deployable),
+        "knowledge_graph_nodes": metrics.get("node_count", len(nodes)),
+        "knowledge_graph_edges": metrics.get("edge_count", len(edges)),
+        "density": float(metrics.get("density", 0) or 0),
+    }
+
 _GRAPH_THEME: dict[str, dict[str, str]] = {
     "light": {
         "canvas_bg": "#fafafa",

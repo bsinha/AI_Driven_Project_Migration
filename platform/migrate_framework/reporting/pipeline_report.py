@@ -396,19 +396,32 @@ def _markdown_to_html_paragraphs(text: str) -> str:
     return "\n".join(chunks)
 
 
-def generate_html_report(project: MigrationProject) -> str:
-    """Build a printable HTML report for stakeholders."""
-    markdown = generate_markdown_report(project)
-    body = _markdown_to_html_paragraphs(markdown)
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>{html.escape(PRODUCT_NAME)} — {html.escape(project.name)}</title>
-  <style>
+def _html_report_styles(*, embed: bool = False) -> str:
+    """Print-friendly light theme; embed mode isolates from Streamlit dark iframe."""
+    embed_rules = ""
+    if embed:
+        embed_rules = """
+    html, body {
+      background-color: #ffffff !important;
+      color: #1f2933 !important;
+    }
+    h1, h2, h3 { color: #102a43 !important; }
+    th { background: #f0f4f8 !important; color: #1f2933 !important; }
+    td { color: #1f2933 !important; }
+    body {
+      box-shadow: 0 0 0 1px #d9e2ec, 0 10px 28px rgba(15, 23, 42, 0.28);
+      border-radius: 8px;
+    }
+"""
+    return f"""
+    html {{
+      color-scheme: light;
+      background-color: #ffffff;
+    }}
     body {{
       font-family: Georgia, "Times New Roman", serif;
       color: #1f2933;
+      background-color: #ffffff;
       max-width: 920px;
       margin: 2rem auto;
       padding: 0 1.5rem 3rem;
@@ -433,8 +446,23 @@ def generate_html_report(project: MigrationProject) -> str:
     p {{ margin: 0.6rem 0; }}
     ul {{ padding-left: 1.25rem; }}
     @media print {{
-      body {{ margin: 0; max-width: none; }}
+      body {{ margin: 0; max-width: none; box-shadow: none; border-radius: 0; }}
     }}
+{embed_rules}"""
+
+
+def generate_html_report(project: MigrationProject, *, embed: bool = False) -> str:
+    """Build a printable HTML report for stakeholders."""
+    markdown = generate_markdown_report(project)
+    body = _markdown_to_html_paragraphs(markdown)
+    styles = _html_report_styles(embed=embed)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="color-scheme" content="light" />
+  <title>{html.escape(PRODUCT_NAME)} — {html.escape(project.name)}</title>
+  <style>{styles}
   </style>
 </head>
 <body>
