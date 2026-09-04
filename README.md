@@ -1,4 +1,5 @@
 # Context Atlas
+## Architecture Intelligence + Transformation Intelligence + Guided Modernization
 
 Evidence-led estate assessment POC — 8-stage gated pipeline demonstrated on EuroSA Bank (Java/Spring Boot granular services).
 

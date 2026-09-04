@@ -30,6 +30,9 @@ migrate-framework = "migrate_framework.cli:main"
 where = ["."]
 include = ["migrate_framework*"]
 
+[tool.setuptools.package-data]
+migrate_framework = ["ui/assets/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

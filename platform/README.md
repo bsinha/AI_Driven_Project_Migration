@@ -1,4 +1,5 @@
 # Context Atlas
+## Architecture Intelligence + Transformation Intelligence + Guided Modernization
 
 Evidence-led estate assessment pipeline with 8 stages: discover, ingest, graph, diagnose, hypothesize, recommend, plan, playbook.
 

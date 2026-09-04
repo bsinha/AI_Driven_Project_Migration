@@ -7,7 +7,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from migrate_framework.branding import PRODUCT_NAME, PRODUCT_TAGLINE
+from migrate_framework.branding import PRODUCT_NAME, PRODUCT_TAGLINE, product_logo_path
 from migrate_framework.models import (
     PIPELINE_STAGE_ORDER,
     ApprovalGate,
@@ -184,7 +184,18 @@ def _render_all_content(project: MigrationProject) -> None:
     render_artifacts(project.metadata.get("artifact_index", {}))
 
 
-st.set_page_config(page_title=PRODUCT_NAME, layout="wide")
+def _configure_branding() -> None:
+    logo = product_logo_path()
+    st.set_page_config(
+        page_title=PRODUCT_NAME,
+        page_icon=str(logo) if logo else "🧭",
+        layout="wide",
+    )
+    if logo:
+        st.logo(str(logo), size="large")
+
+
+_configure_branding()
 _init_session_state()
 
 store = ProjectStore()

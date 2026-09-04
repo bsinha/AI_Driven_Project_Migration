@@ -2,15 +2,15 @@
 marp: true
 theme: default
 paginate: true
-title: AI-Assisted Microservice Migration Framework
+title: Context Atlas — AI-Assisted Microservice Migration
 description: Stakeholder presentation — EuroSA Bank POC
 ---
 
-# AI-Assisted Migration Framework
-## From granular microservices to bounded contexts
+# Context Atlas
+## Evidence-led estate assessment
 
 **EuroSA Bank POC**  
-Evidence → Hypothesis → Recommendation → Human validation → Migration
+Discover → Evidence → Diagnose → Hypothesize → Recommend → **Human gates** → Plan → Guide
 
 ---
 
@@ -31,15 +31,31 @@ EuroSA Bank’s estate was split into **many fine-grained microservices** along 
 
 # What we built
 
-A **reusable migration framework** that:
+A **reusable migration framework** (**Context Atlas**) that:
 
-1. **Collects evidence** from code, APIs, databases, traces, and teams  
-2. **Diagnoses** architectural smells deterministically  
-3. **Proposes** bounded contexts with confidence scores (AI-assisted)  
-4. **Requires human approval** before plan and execution  
-5. **Guides engineers** through phased migration with reviewable diffs  
+1. **Collects evidence** from code, APIs, databases, traces, and teams
+2. **Diagnoses** architectural smells deterministically
+3. **Proposes** bounded contexts with confidence scores (AI-assisted)
+4. **Requires human approval** before plan and execution
+5. **Guides engineers** through phased migration with reviewable diffs
 
 Demonstrated on a **16-service Java/Spring Boot** sample bank (EuroSA POC).
+
+---
+
+# Evolution: v1 → current
+
+| Area | v1 (initial POC) | Current (Context Atlas) |
+|------|------------------|-------------------------|
+| **UI** | Basic dashboard, artifact tables | **L0 / L1 / L2** progressive disclosure + role-based navigation |
+| **Navigation** | Flat views | Dashboard · Guided Review · Landscape · Pipeline · Phases · Governance · **Assessment** · Playbook |
+| **Report** | Download-only (sidebar) | **In-app migration assessment** + download from report page |
+| **AS-IS → TO-BE** | Sankey flow only | **Architecture comparison** (default) + consolidation flow (scope) |
+| **Program model** | Full-estate plan | **Pilot scope** — approve N of M ADRs; defer rest to later waves |
+| **Graph metrics** | “246 nodes” (confusing) | **16 deployable services** vs **246 knowledge-graph nodes** (explained) |
+| **Governance** | Gates + ADRs | + smell exceptions · phase snapshots · phase close · CLI/UI parity |
+
+> **Thesis unchanged:** Humans approve architecture and plan; the tool never auto-merges services.
 
 ---
 
@@ -50,10 +66,8 @@ Demonstrated on a **16-service Java/Spring Boot** sample bank (EuroSA POC).
 | Evidence-backed architecture assessment | An auto-merge / “fix my estate” button |
 | AI-assisted hypotheses & ADRs | A replacement for architects |
 | Phased migration plan + playbook | Unattended production cutover |
-| Dashboard, reports, assisted scaffolds | A one-time script for one repo only |
+| Dashboard, **in-app assessment**, assisted scaffolds | A one-time script for one repo only |
 | Human gates & audit trail | Silent refactoring without review |
-
-> **Thesis:** Technology-oriented decomposition → business-capability-oriented decomposition — **with humans in control.**
 
 ---
 
@@ -86,12 +100,13 @@ flowchart TB
     subgraph Human["Human validation"]
         GATE1{{Recommend gate}}
         GATE2{{Plan gate}}
+        SCOPE[Pilot scope · smell exceptions]
         ENG[Engineer diff review]
     end
 
     subgraph Outputs["Stakeholder outputs"]
-        UI[Streamlit dashboard]
-        RPT[Markdown / HTML report]
+        UI[Context Atlas Streamlit UI]
+        RPT[Migration assessment report]
         ART[Stage artifacts]
     end
 
@@ -100,6 +115,7 @@ flowchart TB
     DB --> ADAPT
     META --> ADAPT
     ADAPT --> DISC --> ING --> GRAPH --> DIAG --> HYP --> REC --> GATE1 --> PLAN --> GATE2 --> PLAY
+    REC --> SCOPE
     PLAY --> ENG
     REC --> RPT
     PLAN --> RPT
@@ -114,7 +130,7 @@ flowchart TB
 ```mermaid
 sequenceDiagram
     participant Eng as Engineering
-    participant FW as Migration framework
+    participant FW as Context Atlas
     participant AI as AI analysis
     participant Arch as Architecture board
 
@@ -125,13 +141,14 @@ sequenceDiagram
     AI-->>FW: Candidates + confidence
     FW->>AI: Recommend ADRs
     FW->>Arch: Approval gate — Recommend
-    Arch-->>FW: Approved / modified
+    Arch-->>FW: Approved / pilot scope (defer some ADRs)
     FW->>FW: Generate migration plan
     FW->>Arch: Approval gate — Plan
     Arch-->>FW: Approved
     FW->>Eng: Playbook + assisted scaffolds
     Eng->>Eng: Implement phase · review diffs
     Eng->>FW: Re-run diagnose (prove improvement)
+    FW->>Arch: Migration assessment report
 ```
 
 ---
@@ -185,14 +202,17 @@ Adapters extract facts from OpenAPI, Spring Boot/Maven, SQL migrations, Docker C
 # Stage 3 — Graph (Model)
 
 **What it does**  
-Builds an **architecture knowledge graph**: services, dependencies, databases, teams, smells as nodes and edges.
+Builds an **architecture knowledge graph**: services, APIs, databases, tables, teams, bounded contexts, smells — nodes and edges.
 
-**Benefit to stakeholders**  
-- Visualizes **hidden coupling** (who calls whom, shared DBs)  
-- Feeds deterministic metrics — not a black-box AI guess  
-- Supports “show me the evidence” conversations
+**Important distinction**
 
-**Output:** Service graph, density, dependency edges
+| Metric | EuroSA POC example | Meaning |
+|--------|-------------------|---------|
+| **Deployable services** | **16** | Microservices in the interactive diagram |
+| **Knowledge graph nodes** | **246** | All evidence entities (APIs, DBs, tables, …) |
+| **Knowledge graph edges** | **282** | All relationships (calls, stores_in, exposes, …) |
+
+The **service diagram** shows deployables only; the knowledge graph powers diagnosis and audit.
 
 ---
 
@@ -204,7 +224,8 @@ Deterministic smell detection: shared databases, sync REST chains, granular deco
 **Benefit to stakeholders**  
 - **Objective health score** for the current estate  
 - Prioritizes **where migration pain is highest**  
-- Same input → same output (regulatory-friendly repeatability)
+- Same input → same output (regulatory-friendly repeatability)  
+- **Smell governance:** accept business-critical smells as-is; exclude from planning
 
 **Output:** Smell catalog, sync chains, recommendations preview
 
@@ -232,7 +253,8 @@ Produces **Architecture Decision Records (ADRs)**: consolidate X services into Y
 **Benefit to stakeholders**  
 - Standard **governance artifact** architecture boards already use  
 - Explicit **consequences** and affected services  
-- **Approval gate** — nothing proceeds without sign-off
+- **Approval gate** — nothing proceeds without sign-off  
+- **Pilot scope:** approve subset of ADRs; defer others to later waves
 
 **Output:** ADRs (YAML) · **Required human approval**
 
@@ -246,7 +268,8 @@ Sequences migration into **phases** with duration, dependencies, risk, tasks, an
 **Benefit to stakeholders**  
 - **Delivery roadmap** for program management (e.g. 4 phases, ~20 weeks POC plan)  
 - Dependencies prevent unsafe ordering (Customer before Payments)  
-- **Approval gate** before execution spend
+- **Approval gate** before execution spend  
+- Deferred ADRs → phases marked **deferred** in plan
 
 **Output:** Migration plan JSON · **Required human approval**
 
@@ -266,6 +289,58 @@ Generates **manual tasks** by team (platform, data, feature, QA) plus **assisted
 
 ---
 
+# Visual pipeline UX (L0 / L1 / L2)
+
+| Layer | What the user sees | Example |
+|-------|-------------------|---------|
+| **L0** | Charts & interactive visuals | Service graph, context map, smell overlay, sync chains |
+| **L1** | Classified summary cards | Graph metrics, smell severity, gate status, readiness |
+| **L2** | Full tables & raw artifacts | Evidence tables, ADR detail, pipeline outputs |
+
+**Guided Review** walks architects stage-by-stage with L0 + L1, then L2 on demand.
+
+**Role-based views:** architect → Guided Review · engineer → Pipeline · program → Phases
+
+---
+
+# Program governance (pilot & phases)
+
+```mermaid
+flowchart LR
+    A[Full estate ADRs] --> B{Scope decision}
+    B -->|Approve| C[Phase 1 pilot]
+    B -->|Defer| D[Remain AS-IS]
+    C --> E[Playbook + validate]
+    E --> F[Phase close + snapshot]
+    F --> G[Phase 2 wave]
+```
+
+| Capability | Purpose |
+|------------|---------|
+| **Scoped pilot** | Approve 2 of N TO-BE contexts; defer others |
+| **Smell exceptions** | Accept smells; visible in diagnose, excluded from plan |
+| **Phase snapshots** | Eight-stage metrics per wave for readiness scoring |
+| **Phase close** | Formal sign-off before next cutover |
+
+**CLI & UI parity:** batch scope wizard, smell decisions, phase context assignment
+
+---
+
+# AS-IS → TO-BE storytelling
+
+Two complementary views — not one misleading diagram:
+
+| View | Purpose | Audience |
+|------|---------|------------|
+| **Architecture comparison** | AS-IS vs TO-BE bounded contexts, deployable counts, ADR links | Architects, ARB |
+| **Consolidation flow** (Sankey) | Which services roll into which target | Program / pilot scope |
+
+**Honest TO-BE counts:** Customer Management **3 → 1** deployable (not “3 → 3”).
+
+Sankey is a **scope mapping** tool — not a runtime architecture diagram.
+
+---
+
 # Human approval gates
 
 ```mermaid
@@ -275,7 +350,7 @@ flowchart LR
     G --> DI[Diagnose ✓]
     DI --> H[Hypothesize ✓]
     H --> R[Recommend ✓]
-    R --> GATE1{{Architect approves ADRs}}
+    R --> GATE1{{Architect approves ADRs + scope}}
     GATE1 --> P[Plan ✓]
     P --> GATE2{{Architect approves plan}}
     GATE2 --> PB[Playbook]
@@ -293,16 +368,16 @@ flowchart LR
 
 # Stakeholder deliverables
 
-| Deliverable | Audience | Use |
-|-------------|----------|-----|
-| **Streamlit dashboard** | Architects, engineers | Run pipeline, approve gates, explore artifacts |
-| **Markdown / HTML report** | Executives, ARB | Shareable assessment + plan |
-| **ADRs** | Architecture board | Formal decisions |
-| **Migration plan** | Program / delivery | Phasing, budget, dependencies |
-| **Playbook** | Squads | Sprint-ready execution tasks |
+| Deliverable | Audience | v1 | Current |
+|-------------|----------|-----|---------|
+| **Context Atlas dashboard** | Architects, engineers | Basic pipeline UI | L0/L1/L2 visual pipeline + governance |
+| **Migration assessment report** | Executives, ARB | Download only | **In-app view** + Markdown/HTML download |
+| **ADRs** | Architecture board | Formal decisions | + pilot scope decisions |
+| **Migration plan** | Program / delivery | Phasing, dependencies | + deferred phases for out-of-scope ADRs |
+| **Playbook** | Squads | Sprint-ready tasks | Assisted scaffolds + diff review |
 
-Download report from dashboard or CLI:  
-`python -m migrate_framework.cli report --project-id <id>`
+**Assessment:** sidebar **View migration assessment** button or **Assessment** tab  
+**CLI:** `python -m migrate_framework.cli report --project-id <id>`
 
 ---
 
@@ -311,10 +386,11 @@ Download report from dashboard or CLI:
 | Metric | Before (granular) | Target (bounded) |
 |--------|-------------------|------------------|
 | Deployable services | **16** | **4** core contexts (+ supporting) |
-| Customer domain | 5 services, 1 shared DB | **Customer Management** |
+| Knowledge graph | **246 nodes / 282 edges** | Grows with evidence; services stay ~16 |
+| Customer domain | 5 services, 1 shared DB | **Customer Management** (3 → 1) |
 | Payments | 4+ sync hops | **Payments** + async integration ADR |
 | Evidence items | 296+ collected | Re-run after each phase |
-| Architecture smells | Shared DB, sync chains, granularity | Tracked per diagnose run |
+| Architecture smells | Shared DB, sync chains, granularity | Tracked + governable per smell |
 
 **Context map (target):**  
 Customer Management → Account Management → Payments → Risk & Compliance
@@ -324,23 +400,25 @@ Customer Management → Account Management → Payments → Risk & Compliance
 # Business benefits
 
 ### Risk reduction
-- Evidence before consolidation — fewer wrong merges  
-- Human gates at **architecture** and **plan** — not just code review  
-- Diff-reviewed scaffolds — no blind automation  
+- Evidence before consolidation — fewer wrong merges
+- Human gates at **architecture** and **plan** — not just code review
+- Diff-reviewed scaffolds — no blind automation
+- **Pilot scope** — no forced big-bang on full estate
 
 ### Speed & clarity
-- Weeks of discovery → **hours** for initial assessment  
-- Single report for **aligned conversations** across IT and business  
-- Phased plan reduces big-bang cutover risk  
+- Weeks of discovery → **hours** for initial assessment
+- **In-app assessment** for aligned conversations across IT and business
+- Phased plan reduces big-bang cutover risk
 
 ### Reuse & scale
-- **Technology-agnostic core** — Java POC today, .NET tomorrow  
-- Same pipeline on **any** microservice estate  
-- Cursor skills/rules embed methodology in daily engineering  
+- **Technology-agnostic core** — Java POC today, .NET tomorrow
+- Same pipeline on **any** microservice estate
+- Cursor skills/rules embed methodology in daily engineering
 
 ### Governance
-- ADRs, artifacts, approval timestamps — **audit trail**  
-- Deterministic stages 1–4 — reproducible for compliance reviews  
+- ADRs, artifacts, approval timestamps — **audit trail**
+- Deterministic stages 1–4 — reproducible for compliance reviews
+- Phase snapshots — prove improvement wave over wave
 
 ---
 
@@ -348,7 +426,7 @@ Customer Management → Account Management → Payments → Risk & Compliance
 
 ```mermaid
 flowchart TD
-    A[Stakeholders approve ADRs + plan] --> B[Filter playbook by phase]
+    A[Approve ADRs + pilot scope] --> B[Filter playbook by phase]
     B --> C[Generate assistance for task]
     C --> D[Review unified diffs]
     D --> E{Approve files?}
@@ -358,7 +436,7 @@ flowchart TD
     G --> H[Re-run diagnose]
     H --> I{Phase done?}
     I -->|No| B
-    I -->|Yes| J[Next phase / new report]
+    I -->|Yes| J[Phase close · new assessment]
 ```
 
 Supported scaffolds: bounded-context skeleton, ACL stubs, SQL drafts, contract tests, aggregate docs, unified API draft.
@@ -371,14 +449,14 @@ Supported scaffolds: bounded-context skeleton, ACL stubs, SQL drafts, contract t
 flowchart TB
     subgraph DevMachine["Developer / demo environment"]
         CLI[migrate-framework CLI]
-        ST[Streamlit UI]
+        ST[Context Atlas Streamlit UI]
         API[FastAPI optional]
     end
 
     subgraph Platform["platform/migrate_framework"]
         ORCH[Pipeline orchestrator]
         STORE[Project store + artifacts]
-        REPORT[Report generator]
+        REPORT[Assessment report generator]
         ASSIST[Task assistant]
     end
 
@@ -427,13 +505,15 @@ Transparency builds trust: we **show gaps** rather than over-promise automation.
 
 # Live demo flow (~15 min)
 
-1. **Initialize** project on `sample-bank`  
-2. **Run** discover → diagnose — show 16 services, smells  
-3. **Run** hypothesize → recommend — show 4 bounded contexts  
-4. **Dashboard** — approve recommend & plan gates  
-5. **Download** stakeholder report (HTML)  
-6. **Playbook** — assisted Phase 1 scaffold + diff review  
-7. **Message:** “We decide; the tool evidences and guides.”  
+1. **Initialize** project on `sample-bank`
+2. **Dashboard** — context map, service graph (**16** deployables)
+3. **Guided Review** — discover → diagnose with L1 summaries
+4. **Graph** — explain **16 services vs 246 knowledge-graph nodes**
+5. **Governance** — pilot scope (approve 2 of N ADRs) + recommend gate
+6. **Phases** — smell decisions, phase context assignment
+7. **Assessment** — in-app report + download HTML
+8. **Playbook** — assisted Phase 1 scaffold + diff review
+9. **Message:** “We decide; the tool evidences and guides.”
 
 Commands: see `docs/poc-demo-script.md`
 
@@ -442,19 +522,19 @@ Commands: see `docs/poc-demo-script.md`
 # Recommended next steps
 
 ### For architecture board
-1. Review downloadable **report** and **ADRs**  
-2. Approve recommend + plan gates (or request modifications)  
-3. Agree Phase 1 scope (e.g. Customer Management only)  
+1. Review **migration assessment report** and **ADRs** in Context Atlas
+2. Approve recommend + plan gates (or request modifications)
+3. Agree **Phase 1 pilot scope** (e.g. Customer Management only; defer Payments)
 
 ### For engineering
-1. Execute **Phase 1 playbook** with assisted diffs  
-2. Strangler routing + contract tests before cutover  
-3. **Re-run diagnose** — attach before/after report to Phase 2 gate  
+1. Execute **Phase 1 playbook** with assisted diffs
+2. Strangler routing + contract tests before cutover
+3. **Re-run diagnose** — attach before/after assessment to Phase 2 gate
 
 ### For program management
-1. Map phases to **squads and timeline**  
-2. Track playbook tasks by owner  
-3. Schedule checkpoint after each phase  
+1. Map phases to **squads and timeline**
+2. Track playbook tasks by owner; use **phase close** checkpoints
+3. Schedule assessment refresh after each wave
 
 ---
 
@@ -464,14 +544,15 @@ Commands: see `docs/poc-demo-script.md`
 |----------|--------|
 | **What problem?** | Over-granular microservices, coupling, shared data |
 | **What approach?** | Evidence → AI hypotheses → human validation → guided migration |
-| **What do we get?** | Health diagnosis, ADRs, phased plan, playbook, reports |
+| **What do we get?** | Health diagnosis, ADRs, pilot scope, phased plan, playbook, **in-app assessment** |
 | **What don’t we get?** | Unattended auto-merge |
-| **Why trust it?** | Deterministic core, evidence artifacts, approval gates, diff review |
+| **Why trust it?** | Deterministic core, evidence artifacts, approval gates, diff review, phase snapshots |
 
 ---
 
 # Thank you
 
+**Product:** Context Atlas —Architecture Intelligence + Transformation Intelligence + Guided Modernization
 **Repository:** AI_Driven_Project_Migration  
 **Docs:** `docs/framework-methodology.md` · `docs/poc-demo-script.md`  
 **Dashboard:** `streamlit run migrate_framework/ui/app.py`
