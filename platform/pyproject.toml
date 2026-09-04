@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "migrate_framework"
 version = "0.1.0"
-description = "Context Atlas — evidence-led estate assessment pipeline"
+description = "MATE — Modernization & Architecture Transformation Engine"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
