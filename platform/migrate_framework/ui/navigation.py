@@ -37,6 +37,21 @@ def set_main_tab(tab: str) -> None:
     st.session_state.main_tab = tab
 
 
+def apply_pending_tab_navigation(tab_labels: list[str] | None = None) -> None:
+    """Apply tab switch requested after main_tab widget was already drawn on prior run."""
+    pending = st.session_state.pop("pending_main_tab", None)
+    if pending is None:
+        return
+    if tab_labels and pending not in tab_labels:
+        pending = tab_labels[0]
+    st.session_state.main_tab = pending
+
+
+def request_main_tab(tab: str) -> None:
+    """Switch main section on next run (safe after main_tab radio is instantiated)."""
+    st.session_state.pending_main_tab = tab
+
+
 def render_main_tab_selector(tab_labels: list[str]) -> None:
     """Horizontal section selector synced with session state (sidebar can jump tabs)."""
     ensure_main_tab(tab_labels)

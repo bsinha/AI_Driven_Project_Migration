@@ -6,6 +6,8 @@ Canonical operating model for the EuroSA Bank POC, aligned with the 1 September 
 
 **Stakeholder terminology (1 Sep meeting):** Avoid a binary “deterministic vs non-deterministic” label for AI stages. Use three terms: **deterministic analysis** (no LLM), **pattern-constrained AI** (LLM within architecture knowledge), and **human decision** (gates). “Non-deterministic” here means LLM output can vary on repeat runs — not that architecture is unconstrained.
 
+**Platform diagram:** [MATE logical architecture v2](mate-logical-architecture.md) — personas, pipeline, V&V loop, POC vs roadmap legend.
+
 ---
 
 ## Two dimensions

@@ -7,7 +7,7 @@ from typing import Any
 import streamlit as st
 
 from migrate_framework.models import PipelineStage
-from migrate_framework.ui.navigation import set_guided_stage
+from migrate_framework.ui.navigation import request_main_tab, set_guided_stage
 
 
 def streamlit_plotly_theme() -> dict[str, str]:
@@ -94,9 +94,9 @@ def navigate_to_pipeline_stage(stage_value: str) -> None:
     except ValueError:
         return
     set_guided_stage(stage)
-    st.session_state.main_tab = "Pipeline"
     st.session_state.pipeline_content_view = "stage"
     st.session_state.selected_pipeline_stage = stage.value
+    request_main_tab("Pipeline")
     st.rerun()
 
 

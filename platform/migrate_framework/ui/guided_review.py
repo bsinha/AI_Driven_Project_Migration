@@ -11,7 +11,7 @@ from migrate_framework.ui.classified_panels import render_stage_l1_summary
 from migrate_framework.ui.gate_display import gate_status_display
 from migrate_framework.ui.gate_review import render_gate_review_context
 from migrate_framework.ui.landscape_overview import _diagnosis, _graph_payload, _ingest_summary
-from migrate_framework.ui.navigation import set_guided_stage
+from migrate_framework.ui.navigation import request_main_tab, set_guided_stage
 from migrate_framework.ui.context_map import render_bounded_context_map
 from migrate_framework.ui.interactive_graphs import render_interactive_service_graph
 from migrate_framework.ui.plotly_widgets import handle_stage_chart_selection, render_plotly_chart
@@ -173,15 +173,15 @@ def render_guided_review(
     action1, action2, action3 = st.columns(3)
     with action1:
         if st.button("Open in Pipeline tab", key=f"open-pipeline-{stage.value}"):
-            st.session_state.main_tab = "Pipeline"
             st.session_state.pipeline_content_view = "stage"
             st.session_state.selected_pipeline_stage = stage.value
+            request_main_tab("Pipeline")
             st.rerun()
     with action2:
         if st.button("Open Governance", key=f"open-gov-{stage.value}"):
-            st.session_state.main_tab = "Governance"
+            request_main_tab("Governance")
             st.rerun()
     with action3:
         if st.button("Open Landscape", key=f"open-landscape-{stage.value}"):
-            st.session_state.main_tab = "Landscape"
+            request_main_tab("Landscape")
             st.rerun()

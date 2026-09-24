@@ -1,6 +1,6 @@
 # Framework Methodology — 8-Stage Pipeline
 
-See also: [Operating model](operating-model.md) (iteration, deterministic vs AI, rejection paths) · [Complexity matrix](migration-complexity-matrix.md) (exception scenarios).
+See also: [Logical architecture (MATE v2)](mate-logical-architecture.md) · [Operating model](operating-model.md) (iteration, deterministic vs AI, rejection paths) · [Complexity matrix](migration-complexity-matrix.md) (exception scenarios).
 
 ## Stages
 

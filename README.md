@@ -36,6 +36,7 @@ Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → *
 
 ## Documentation
 
+- [Logical architecture (MATE v2)](docs/mate-logical-architecture.md) — platform overview, V&V loop, POC vs roadmap
 - [Problem statement](docs/problem-statement.md)
 - [Framework methodology](docs/framework-methodology.md)
 - [Operating model](docs/operating-model.md) — deterministic analysis, pattern-constrained AI, iteration, customer story

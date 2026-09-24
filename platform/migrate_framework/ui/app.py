@@ -22,6 +22,7 @@ from migrate_framework.ui.dashboard import render_migration_dashboard
 from migrate_framework.ui.guided_review import render_guided_review
 from migrate_framework.ui.landscape_overview import render_landscape_overview
 from migrate_framework.ui.navigation import (
+    apply_pending_tab_navigation,
     init_navigation_state,
     MAIN_TABS,
     build_breadcrumb_parts,
@@ -266,6 +267,7 @@ if project:
         tab_labels = [t for t in tab_labels if t != "Phases"]
 
     render_assessment_sidebar_action(tab_labels)
+    apply_pending_tab_navigation(tab_labels)
     render_main_tab_selector(tab_labels)
     active_tab = st.session_state.main_tab
 
