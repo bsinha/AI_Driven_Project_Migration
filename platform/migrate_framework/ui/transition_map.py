@@ -7,6 +7,7 @@ from typing import Any
 import streamlit as st
 
 from migrate_framework.ui.context_map import count_mapped_services
+from migrate_framework.ui.metric_reconciliation import discovered_service_count
 from migrate_framework.ui.plotly_widgets import render_plotly_chart, render_plotly_sankey_chart
 from migrate_framework.ui.visualizations import (
     _short_service_label,
@@ -182,7 +183,6 @@ def render_architecture_comparison(
     bounded_contexts: list[dict[str, Any]],
     adrs: list[dict[str, Any]],
     migration_edges: list[dict[str, Any]],
-    diagnosis: dict[str, Any] | None = None,
 ) -> None:
     """Side-by-side AS-IS vs TO-BE structure tables — the comparative architecture story."""
     as_is_rows = build_as_is_architecture_rows(bounded_contexts)
@@ -194,18 +194,9 @@ def render_architecture_comparison(
     st.caption(
         "Compare **structural** AS-IS (bounded contexts and current deployables) with proposed TO-BE contexts. "
         "AS-IS **deployable_count** is services running today; TO-BE **to_be_deployables** is the consolidated "
-        "target (usually 1 per context). **as_is_sources** lists how many current services roll into that target."
+        "target (usually 1 per context). **as_is_sources** lists how many current services roll into that target. "
+        "Smell and coupling metrics are on **Dashboard → Overview** (smell source toggle) and **Pipeline → Diagnose**."
     )
-
-    if diagnosis:
-        smells = diagnosis.get("smells") or []
-        open_smells = [s for s in smells if s.get("governance_status", "open") == "open"]
-        shared_db = diagnosis.get("database_sharing") or {}
-        chains = (diagnosis.get("coupling") or {}).get("chains") or []
-        h1, h2, h3 = st.columns(3)
-        h1.metric("AS-IS smells (open)", len(open_smells))
-        h2.metric("Shared databases", len(shared_db))
-        h3.metric("Sync chains", len(chains))
 
     col_left, col_right = st.columns(2)
     with col_left:
@@ -263,6 +254,8 @@ def render_transition_summary(
     migration_edges: list[dict[str, Any]],
     adrs: list[dict[str, Any]],
     plan_phases: list[dict[str, Any]] | None = None,
+    *,
+    ingest: dict[str, Any] | None = None,
 ) -> None:
     if not bounded_contexts and not migration_edges:
         st.caption("No transition data yet. Run **recommend** and **plan** for AS-IS → TO-BE mapping.")
@@ -272,10 +265,23 @@ def render_transition_summary(
         bounded_contexts, migration_edges, adrs, plan_phases
     )
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("AS-IS services", metrics["service_count"])
-    m2.metric("TO-BE targets", metrics["target_context_count"])
+    m1.metric("AS-IS services (in contexts)", metrics["service_count"])
+    m2.metric("TO-BE migration targets", metrics["target_context_count"])
     m3.metric("Consolidation ratio", f"{metrics['consolidation_ratio']}:1")
     m4.metric("Mandatory ADRs", metrics["mandatory_adrs"])
+
+    st.caption(
+        "**AS-IS services (in contexts)** = services under manifest bounded contexts, not total discovered. "
+        "**TO-BE migration targets** = distinct ADR/plan labels on migration edges (can exceed consolidated context count)."
+    )
+
+    if ingest:
+        discovered = discovered_service_count(ingest)
+        if discovered and discovered != metrics["service_count"]:
+            st.caption(
+                f"Discovered services (ingest): **{discovered}** · AS-IS in contexts above: "
+                f"**{metrics['service_count']}**."
+            )
 
     if metrics["unmapped_services"]:
         st.caption(
@@ -290,10 +296,11 @@ def _render_transition_diagram(
     migration_edges: list[dict[str, Any]],
     adrs: list[dict[str, Any]],
     diagnosis: dict[str, Any] | None = None,
+    ingest: dict[str, Any] | None = None,
     *,
     chart_height: int = 480,
 ) -> None:
-    render_architecture_comparison(bounded_contexts, adrs, migration_edges, diagnosis)
+    render_architecture_comparison(bounded_contexts, adrs, migration_edges)
 
     viz_mode = st.radio(
         "Diagram view",
@@ -350,10 +357,13 @@ def render_as_is_to_be_map(
     *,
     chart_height: int = 480,
     diagnosis: dict[str, Any] | None = None,
+    ingest: dict[str, Any] | None = None,
 ) -> None:
     """Summary metrics, architecture comparison tables, and diagram (comparative or consolidation)."""
     migration_edges = build_migration_edges(bounded_contexts, adrs, plan_phases)
-    render_transition_summary(bounded_contexts, migration_edges, adrs, plan_phases)
+    render_transition_summary(
+        bounded_contexts, migration_edges, adrs, plan_phases, ingest=ingest
+    )
 
     if not bounded_contexts and not migration_edges:
         return
@@ -365,6 +375,7 @@ def render_as_is_to_be_map(
         migration_edges,
         adrs,
         diagnosis,
+        ingest,
     )
     if fragment is not None:
         fragment(_render_transition_diagram)(

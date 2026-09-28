@@ -153,6 +153,7 @@ def render_landscape_overview(project: MigrationProject, completed: set[Pipeline
                 adrs,
                 phases,
                 diagnosis=diagnosis,
+                ingest=ingest,
             )
 
     if ingest.get("shared_databases"):

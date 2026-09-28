@@ -189,6 +189,25 @@ References to "both cases" in meetings mean **two POCs**, not two scenarios insi
 
 ---
 
+## Dashboard metric definitions (Context Atlas UI)
+
+The Dashboard shows **different counts on purpose** — each answers a distinct question. Do not expect a single “service count” or “smell count” everywhere.
+
+| UI label | Meaning | Typical source |
+|----------|---------|----------------|
+| **Services (discovered)** | All deployable services in ingest evidence | Ingest `service_count` / catalogue |
+| **Services in contexts** | Services listed under manifest **target_bounded_contexts** | Ingest `bounded_contexts` |
+| **Shared DB clusters** | Database *names* used by more than one service | Ingest `shared_databases` (length) |
+| **Services on shared DBs** | Individual services participating in any shared cluster | Union of services on those rows |
+| **Smells** (Overview) | Toggle: **Manifest** = landscape tags; **Diagnosis (open)** = post-**diagnose** findings; bar chart shows smell **labels** | Ingest vs diagnose artifact |
+| **TO-BE migration targets** | Distinct ADR/plan labels on migration edges | Recommend/plan metadata (not “4 contexts”) |
+
+**Architecture comparison** (Dashboard / Landscape) is **structural only** (AS-IS vs TO-BE tables). It does not repeat smell counts — use Overview or **Diagnose** for labeled smell detail.
+
+When discovered ≠ in-context, the UI lists services missing from **target_bounded_contexts** (e.g. platform services not yet assigned to a target context).
+
+---
+
 ## Related
 
 - [Framework methodology](framework-methodology.md)

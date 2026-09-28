@@ -91,6 +91,7 @@ def _render_step_visual(stage: PipelineStage, project: MigrationProject, complet
                 adrs,
                 phases,
                 diagnosis=diagnosis,
+                ingest=ingest,
             )
 
     if "plan_timeline" in components_list:

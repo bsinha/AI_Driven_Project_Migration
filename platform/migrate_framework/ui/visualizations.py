@@ -765,7 +765,7 @@ def build_plotly_as_is_to_be(
     return build_plotly_side_by_side_transition(bounded_contexts, edges)
 
 
-def build_plotly_smell_summary(smells: list[dict[str, Any]]) -> Any:
+def build_plotly_smell_summary(smells: list[dict[str, Any]], *, title: str = "Smell distribution") -> Any:
     if go is None:
         raise RuntimeError("plotly is required")
     if not smells:
@@ -794,7 +794,7 @@ def build_plotly_smell_summary(smells: list[dict[str, Any]]) -> Any:
     fig.update_layout(
         margin=dict(l=10, r=10, t=36, b=10),
         height=max(280, len(labels) * 28 + 60),
-        title="Smell distribution",
+        title=title,
         xaxis_title="Count",
         yaxis=dict(autorange="reversed"),
     )

@@ -44,6 +44,7 @@ def render_bounded_context_summary(
     bounded_contexts: list[dict[str, Any]],
     *,
     highlight_services: set[str] | None = None,
+    discovered_service_count: int | None = None,
 ) -> None:
     """Metrics + table: how many contexts and which they are."""
     if not bounded_contexts:
@@ -56,8 +57,17 @@ def render_bounded_context_summary(
 
     m1, m2, m3 = st.columns(3)
     m1.metric("Bounded contexts", context_count)
-    m2.metric("Services mapped", service_count)
-    m3.metric("Shared-DB services", len(highlight_services))
+    m2.metric("Services in contexts", service_count)
+    m3.metric("Services on shared DBs", len(highlight_services))
+
+    st.caption(
+        "**Services in contexts** = listed under manifest **target_bounded_contexts** (may be fewer than discovered). "
+        "**Services on shared DBs** = deployables using a database shared with another service."
+    )
+    if discovered_service_count is not None and discovered_service_count != service_count:
+        st.caption(
+            f"Discovered services (ingest): **{discovered_service_count}** · in bounded contexts: **{service_count}**."
+        )
 
     rows = build_context_summary_rows(bounded_contexts, highlight_services=highlight_services)
     st.dataframe(rows, use_container_width=True, hide_index=True)
@@ -69,12 +79,17 @@ def render_bounded_context_map(
     bounded_contexts: list[dict[str, Any]],
     *,
     highlight_services: set[str] | None = None,
+    discovered_service_count: int | None = None,
     tree_height: int = 420,
 ) -> None:
     """Summary strip + interactive top-down Plotly tree."""
     highlight_services = highlight_services or set()
 
-    render_bounded_context_summary(bounded_contexts, highlight_services=highlight_services)
+    render_bounded_context_summary(
+        bounded_contexts,
+        highlight_services=highlight_services,
+        discovered_service_count=discovered_service_count,
+    )
 
     if not bounded_contexts:
         return
