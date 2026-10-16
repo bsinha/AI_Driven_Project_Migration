@@ -1,0 +1,9 @@
+# Listen on all interfaces so other machines on the LAN can reach the UI.
+# Access via http://<this-host-ip>:8501 (allow TCP 8501 in Windows Firewall if blocked).
+
+[server]
+address = "0.0.0.0"
+port = 8501
+
+[browser]
+gatherUsageStats = false

@@ -1,5 +1,7 @@
 # Framework Methodology — 8-Stage Pipeline
 
+See also: [Logical architecture (MATE v2)](mate-logical-architecture.md) · [Operating model](operating-model.md) (iteration, deterministic vs AI, rejection paths) · [Complexity matrix](migration-complexity-matrix.md) (exception scenarios).
+
 ## Stages
 
 | # | Stage | Actor | Output |
@@ -17,6 +19,21 @@
 
 - **After Recommend (Stage 6):** Approve / reject / modify target architecture
 - **After Plan (Stage 7):** Approve migration plan before playbook
+
+Rejection = withhold approval and re-run upstream stages (e.g. re-hypothesize, edit ADRs, re-plan). See [operating model — re-entry paths](operating-model.md#re-entry-and-rejection-paths).
+
+## Iteration
+
+- **Within a phase:** rejected hypothesis → refine evidence → re-hypothesize → recommend again
+- **Across phases:** complete Phase N playbook → validate (re-diagnose) → Phase N+1 pipeline run
+- **Feedback loop:** validation failure → re-diagnose or re-plan before next cutover
+- **Scoped pilot:** per-ADR approve / defer via `item_decisions`; deferred ADRs remain AS-IS until a later wave
+- **Smell exceptions:** per-smell accept / defer via `smell_decisions`; accepted smells stay visible in diagnose but are excluded from planning
+- **Phase snapshots:** `phase_snapshots` metadata stores eight-stage metrics per program phase for readiness scoring
+
+CLI: `scope-decide`, `scope-pilot`, `scope-decide-batch`, `smell-decide`, `smell-decide-batch`, `phase-set-contexts`, `phase-close`.
+
+**Streamlit UI parity:** Governance → Pilot scope wizard (batch ADRs); Phases → context assignment, phase close, batch smell decisions; per-item controls remain for fine-grained edits.
 
 ## Onboarding a new codebase
 

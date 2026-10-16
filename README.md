@@ -1,6 +1,7 @@
-# AI-Driven Granular-to-Bounded-Context Migration POC
+# MATE
+## Modernization & Architecture Transformation Engine
 
-Technology-agnostic **AI-assisted migration framework** with an 8-stage gated pipeline, demonstrated on EuroSA Bank (Java/Spring Boot granular microservices).
+Evidence-led architecture modernization POC — an 8-stage gated pipeline demonstrated on EuroSA Bank (Java/Spring Boot granular services).
 
 ## Quick start
 
@@ -19,7 +20,6 @@ streamlit run migrate_framework/ui/app.py
 
 ## Repository layout
 
-
 | Path                             | Purpose                                          |
 | -------------------------------- | ------------------------------------------------ |
 | `platform/migrate_framework/`    | Python framework (pipeline, adapters, graph, AI) |
@@ -28,22 +28,20 @@ streamlit run migrate_framework/ui/app.py
 | `docs/`                          | Problem statement, methodology, demo script      |
 | `.cursor/rules/`                 | Cursor AI guidance                               |
 
-
-
-
 ## Pipeline
 
 Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → **[gate]** → Plan → **[gate]** → Guide
 
-**Never auto-merges services.** Stages 1–4 are deterministic; human approval required at Stages 6–7.
+**Never auto-merges services.** Stages 1–4 are deterministic; human approval is required at the architecture recommendation and migration plan gates.
 
 ## Documentation
 
+- [Logical architecture (MATE v2)](docs/mate-logical-architecture.md) — platform overview, V&V loop, POC vs roadmap
 - [Problem statement](docs/problem-statement.md)
 - [Framework methodology](docs/framework-methodology.md)
+- [Operating model](docs/operating-model.md) — deterministic analysis, pattern-constrained AI, iteration, customer story
+- [Complexity matrix](docs/migration-complexity-matrix.md) — exception scenarios & POC coverage
 - [POC demo script](docs/poc-demo-script.md)
-
-
 
 ## Environment
 

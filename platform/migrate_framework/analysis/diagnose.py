@@ -7,6 +7,7 @@ from typing import Any
 
 import networkx as nx
 
+from migrate_framework.analysis.smell_catalog import enrich_landscape_smell
 from migrate_framework.graph.builder import build_networkx_graph, build_service_graph, graph_metrics
 from migrate_framework.models import EvidenceItem, Landscape
 
@@ -157,12 +158,19 @@ def _detect_smells(
         e for e in evidence if e.type == "landscape_smell"
     ]
     for item in manifest_smells:
+        smell_id = str(item.attributes.get("smell", "unknown"))
+        service_id = str(item.attributes.get("service") or item.subject)
+        enriched = enrich_landscape_smell(smell_id, service_id)
         smells.append(
             {
-                "type": item.attributes.get("smell", "unknown"),
-                "severity": "medium",
-                "subject": item.attributes.get("service"),
-                "description": f"Manifest smell: {item.attributes.get('smell')}",
+                "type": smell_id,
+                "severity": enriched["severity"],
+                "subject": service_id,
+                "service": service_id,
+                "description": enriched["description"],
+                "migration_impact": enriched["migration_impact"],
+                "what_to_verify": enriched["what_to_verify"],
+                "title": enriched["title"],
                 "source": "landscape-manifest",
             }
         )

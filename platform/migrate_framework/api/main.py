@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from migrate_framework.branding import PRODUCT_NAME
 from migrate_framework.models import PIPELINE_STAGE_ORDER, PipelineStage
 from migrate_framework.pipeline.orchestrator import PipelineOrchestrator
 from migrate_framework.pipeline.project_store import ProjectStore
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-app = FastAPI(title="Migrate Framework API", version="0.1.0")
+app = FastAPI(title=f"{PRODUCT_NAME} API", version="0.1.0")
 orch = PipelineOrchestrator()
 store = ProjectStore()
 
@@ -29,6 +30,25 @@ class InitRequest(BaseModel):
 class ApproveRequest(BaseModel):
     stage: str
     approved_by: str = "api-user"
+    notes: str | None = None
+    reason_code: str | None = None
+    reason_text: str | None = None
+    allow_low_confidence: bool = False
+
+
+class RejectRequest(BaseModel):
+    stage: str
+    rejected_by: str = "api-user"
+    reason_code: str
+    reason_text: str
+    notes: str | None = None
+
+
+class WaiveRequest(BaseModel):
+    stage: str
+    waived_by: str = "api-user"
+    reason_code: str
+    reason_text: str
     notes: str | None = None
 
 
@@ -79,7 +99,13 @@ def project_status(project_id: str) -> dict[str, Any]:
         "current_stage": project.current_stage.value,
         "completed_stages": [r.stage.value for r in project.stage_runs if r.status == "completed"],
         "approval_gates": [
-            {"stage": g.stage.value, "required": g.required, "approved": g.approved}
+            {
+                "stage": g.stage.value,
+                "required": g.required,
+                "approved": g.approved,
+                "status": g.status.value,
+                "iteration_round": g.iteration_round,
+            }
             for g in project.approval_gates
         ],
         "metadata_keys": list(project.metadata.keys()),
@@ -90,10 +116,41 @@ def project_status(project_id: str) -> dict[str, Any]:
 def approve_stage(project_id: str, body: ApproveRequest) -> dict[str, Any]:
     try:
         stage = PipelineStage(body.stage.lower())
-        project = orch.approve(project_id, stage, body.approved_by, body.notes)
+        project = orch.approve(
+            project_id,
+            stage,
+            body.approved_by,
+            body.notes,
+            body.reason_code,
+            body.reason_text,
+            body.allow_low_confidence,
+        )
     except (ValueError, FileNotFoundError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"project_id": project.id, "stage": stage.value, "approved": True}
+    gate = project.gate_for(stage)
+    return {"project_id": project.id, "stage": stage.value, "status": gate.status.value if gate else None}
+
+
+@app.post("/projects/{project_id}/reject")
+def reject_stage(project_id: str, body: RejectRequest) -> dict[str, Any]:
+    try:
+        stage = PipelineStage(body.stage.lower())
+        project = orch.reject(project_id, stage, body.rejected_by, body.reason_code, body.reason_text, body.notes)
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    gate = project.gate_for(stage)
+    return {"project_id": project.id, "stage": stage.value, "status": gate.status.value if gate else None}
+
+
+@app.post("/projects/{project_id}/waive")
+def waive_stage(project_id: str, body: WaiveRequest) -> dict[str, Any]:
+    try:
+        stage = PipelineStage(body.stage.lower())
+        project = orch.waive(project_id, stage, body.waived_by, body.reason_code, body.reason_text, body.notes)
+    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    gate = project.gate_for(stage)
+    return {"project_id": project.id, "stage": stage.value, "status": gate.status.value if gate else None}
 
 
 @app.post("/projects/{project_id}/run")

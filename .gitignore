@@ -223,6 +223,7 @@ platform/projects/
 *.egg-info/
 
 # Temporary clones
+sample-bank/target-contexts/
 sample-bank-base/
 sample-bank-tmp/
 

@@ -17,6 +17,8 @@ def recommend(
     ranked = sorted(hypotheses, key=lambda h: h.get("confidence", 0), reverse=True)
 
     for idx, hyp in enumerate(ranked[:5], start=1):
+        affected = hyp.get("affected_services", [])
+        mandatory = idx <= 3 or hyp.get("confidence", 0) >= 0.75
         adrs.append(
             {
                 "id": new_id("adr"),
@@ -28,8 +30,14 @@ def recommend(
                 "decision": hyp.get("description", ""),
                 "consequences": _consequences(hyp, diagnosis),
                 "target_context": hyp.get("target_context"),
-                "affected_services": hyp.get("affected_services", []),
+                "affected_services": affected,
                 "confidence": hyp.get("confidence", 0.7),
+                "mandatory": mandatory,
+                "blocks_gate": mandatory,
+                "as_is_summary": _as_is_summary(affected, diagnosis),
+                "to_be_preview": _to_be_preview(hyp.get("target_context"), affected),
+                "benefit_if_accepted": _benefit_if_accepted(hyp, diagnosis),
+                "risk_if_rejected": _risk_if_rejected(hyp, mandatory),
             }
         )
 
@@ -54,10 +62,49 @@ def recommend(
                 "target_context": "Cross-cutting",
                 "affected_services": [],
                 "confidence": 0.9,
+                "mandatory": True,
+                "blocks_gate": True,
+                "as_is_summary": "Shared databases detected across services.",
+                "to_be_preview": "One database/schema per bounded context.",
+                "benefit_if_accepted": "Removes shared-database coupling smell.",
+                "risk_if_rejected": "Data coupling remains; recommend gate blocked for consolidation phases.",
             }
         )
 
     return adrs
+
+
+def _as_is_summary(affected: list[str], diagnosis: dict[str, Any]) -> str:
+    if not affected:
+        return "Cross-cutting architectural constraint."
+    sharing = diagnosis.get("database_sharing", {})
+    shared = [db for db, svcs in sharing.items() if any(s in svcs for s in affected)]
+    if shared:
+        return f"{len(affected)} service(s); shared DB: {', '.join(shared)}"
+    return f"{len(affected)} granular service(s) in current estate."
+
+
+def _to_be_preview(target_context: str | None, affected: list[str]) -> str:
+    ctx = target_context or "Bounded context"
+    slug = str(ctx).lower().replace(" ", "-")
+    return f"Consolidate into **{ctx}** (`target-contexts/{slug}/`) with unified API surface."
+
+
+def _benefit_if_accepted(hypothesis: dict[str, Any], diagnosis: dict[str, Any]) -> str:
+    n = len(hypothesis.get("affected_services", []))
+    smells = len(diagnosis.get("smells", []))
+    parts = []
+    if n:
+        parts.append(f"Reduces deployable units by consolidating {n} service(s)")
+    if smells:
+        parts.append(f"Addresses architectural smells ({smells} detected in estate)")
+    return "; ".join(parts) or "Improves domain alignment and team ownership."
+
+
+def _risk_if_rejected(hypothesis: dict[str, Any], mandatory: bool) -> str:
+    if mandatory:
+        return "Mandatory ADR — rejection blocks migration plan approval for this scope."
+    return "Optional ADR — may defer to a later migration phase."
 
 
 def _consequences(hypothesis: dict[str, Any], diagnosis: dict[str, Any]) -> list[str]:
