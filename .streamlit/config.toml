@@ -1,0 +1,8 @@
+# Used by Streamlit Community Cloud (config must live at repository root).
+# Local LAN dev: see platform/.streamlit/config.toml when running from platform/.
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

@@ -1,0 +1,3 @@
+# Streamlit Community Cloud: deploy from repository root with
+#   Main file path: platform/migrate_framework/ui/app.py
+-e ./platform

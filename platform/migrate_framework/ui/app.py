@@ -38,7 +38,22 @@ from migrate_framework.ui.smell_governance import render_smell_governance
 from migrate_framework.ui.assessment_report import render_assessment_report
 from migrate_framework.pipeline.governance import stage_summary_metrics
 
+def _repo_root() -> Path:
+    # platform/migrate_framework/ui/app.py → repository root
+    return Path(__file__).resolve().parents[3]
+
+
+def _default_sample_bank_paths() -> tuple[str, str]:
+    """Repo-relative paths for Streamlit Community Cloud (cwd = repo root)."""
+    sample = _repo_root() / "sample-bank"
+    manifest = sample / "landscape-manifest.yaml"
+    if manifest.is_file():
+        return str(sample), str(manifest)
+    return "../sample-bank", "../sample-bank/landscape-manifest.yaml"
+
+
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(_repo_root() / ".env")
 
 _STAGE_UI: dict[PipelineStage, tuple[str, str]] = {
     PipelineStage.DISCOVER: ("🔎", "Discover"),
@@ -220,13 +235,14 @@ project: MigrationProject | None = None
 
 if selected == "— new —":
     st.subheader("Initialize project")
+    default_source, default_manifest = _default_sample_bank_paths()
     nc1, nc2, nc3 = st.columns(3)
     with nc1:
         name = st.text_input("Project name", value="EuroSA Bank Migration")
     with nc2:
-        source = st.text_input("Source root", value="../sample-bank")
+        source = st.text_input("Source root", value=default_source)
     with nc3:
-        landscape = st.text_input("Landscape manifest", value="../sample-bank/landscape-manifest.yaml")
+        landscape = st.text_input("Landscape manifest", value=default_manifest)
     if st.button("Initialize project"):
         project = orch.init_project(name, str(Path(source).resolve()), str(Path(landscape).resolve()))
         st.success(f"Created project {project.id}")
