@@ -7,13 +7,13 @@ See also: [Logical architecture (MATE v2)](mate-logical-architecture.md) · [Ope
 | # | Stage | Actor | Output |
 |---|-------|-------|--------|
 | 1 | Discover | Framework | Service inventory, tech stack profile |
-| 2 | Collect Evidence | Adapters | Normalized evidence bundle |
-| 3 | Model | Graph builder | Architecture knowledge graph |
+| 2 | Ingest | Adapters | Normalized evidence bundle |
+| 3 | Graph | Graph builder | Architecture knowledge graph |
 | 4 | Diagnose | Metrics engine | Health report, smells |
 | 5 | Hypothesize | AI | 2–4 candidate bounded contexts |
 | 6 | Recommend | AI | Target architecture, ADRs |
 | 7 | Plan | Framework + AI | Phased migration plan |
-| 8 | Guide | Developer + framework | Playbook tasks |
+| 8 | Playbook | Developer + framework | Playbook tasks |
 
 ## Human gates
 

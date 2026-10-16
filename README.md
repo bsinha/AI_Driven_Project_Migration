@@ -26,11 +26,11 @@ streamlit run migrate_framework/ui/app.py
 | `sample-bank/granular-services/` | 16 intentional granular Java services            |
 | `metadata/`                      | Synthetic traces, co-change, teams               |
 | `docs/`                          | Problem statement, methodology, demo script      |
-| `.cursor/rules/`                 | Cursor AI guidance                               |
+| `AGENTS.md` and `.agents/skills/` | Codex project guidance and repeatable workflows |
 
 ## Pipeline
 
-Discover → Evidence → Model → Diagnose → Hypothesize → Recommend → **[gate]** → Plan → **[gate]** → Guide
+Discover → Ingest → Graph → Diagnose → Hypothesize → Recommend → **[gate]** → Plan → **[gate]** → Playbook
 
 **Never auto-merges services.** Stages 1–4 are deterministic; human approval is required at the architecture recommendation and migration plan gates.
 

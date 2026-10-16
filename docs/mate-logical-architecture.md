@@ -248,7 +248,7 @@ flowchart LR
 |-----------|-------------|---------|
 | **Graph store** | NetworkX in-memory | Neo4j / persistent graph DB |
 | **Vector store** | — | Embeddings for RAG |
-| **Knowledge base** | `.cursor/rules/`, skills, smell catalog, manifest | Centralized pattern library UI |
+| **Knowledge base** | `AGENTS.md`, `.agents/skills/`, smell catalog, manifest | Centralized pattern library UI |
 | **Runtime ingestion** | Synthetic traces (`metadata/`), `TraceAdapter` | Live APM, logs, CMDB |
 | **Cloud / IaC adapters** | — | Terraform, K8s, ARM/Bicep |
 | **Collaboration** | Reject, request-evidence, decision log | Threaded comments, evidence requests |

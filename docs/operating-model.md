@@ -16,7 +16,7 @@ Canonical operating model for the EuroSA Bank POC, aligned with the 1 September 
 
 ```text
 1 Discover  →  2 Ingest  →  3 Graph  →  4 Diagnose
-       →  5 Hypothesize  →  6 Recommend  →  7 Plan  →  8 Guide
+       →  5 Hypothesize  →  6 Recommend  →  7 Plan  →  8 Playbook
 ```
 
 ### Dimension 2 — Migration lifecycle (across the estate)
@@ -24,7 +24,7 @@ Canonical operating model for the EuroSA Bank POC, aligned with the 1 September 
 ```text
         ┌─────────────────────────────┐
         │       Migration Phase N     │
-        │  Discover → … → Guide       │
+        │  Discover → … → Playbook    │
         │             ↓               │
         │          Validate           │
         └─────────────┬───────────────┘
@@ -34,7 +34,7 @@ Canonical operating model for the EuroSA Bank POC, aligned with the 1 September 
                       ▼
         ┌─────────────────────────────┐
         │       Migration Phase N+1 │
-        │  Discover → … → Guide       │
+        │  Discover → … → Playbook    │
         └─────────────────────────────┘
 ```
 
@@ -73,7 +73,7 @@ Source ──► Deterministic Evidence ──► AI Reasoning
 
 | Layer | Where it lives in POC | Role |
 |-------|----------------------|------|
-| Architecture knowledge | `.cursor/rules/`, `AGENTS.md`, skills, `landscape-manifest.yaml` | Constrains what AI may propose; encodes DDD/bounded-context patterns |
+| Architecture knowledge | `AGENTS.md`, `.agents/skills/`, smell catalog, `landscape-manifest.yaml` | Constrains what AI may propose; encodes DDD/bounded-context patterns |
 | Deterministic evidence & analysis | Stages 1–4, `diagnose.py`, graph builder | Repeatable facts and smells — no LLM |
 | AI reasoning | Stages 5–7, `hypothesize.py`, `recommend.py` | Evidence-backed hypotheses and ADRs with confidence |
 | Human decision | Approval gates (recommend, plan), Streamlit dashboard | Architects approve, modify, or block |
@@ -109,7 +109,7 @@ Source ──► Deterministic Evidence ──► AI Reasoning
 Current Estate
       │
       ▼
-Discover → Evidence → Architecture Graph → Diagnosis
+Discover → Ingest → Graph → Diagnose
       │
       ▼
 AI Context Hypotheses (confidence-scored)

@@ -10,7 +10,7 @@ description: Stakeholder presentation — EuroSA Bank POC
 ## Evidence-led estate assessment
 
 **EuroSA Bank POC**  
-Discover → Evidence → Diagnose → Hypothesize → Recommend → **Human gates** → Plan → Guide
+Discover → Ingest → Graph → Diagnose → Hypothesize → Recommend → **Human gates** → Plan → Playbook
 
 ---
 
@@ -413,7 +413,7 @@ Customer Management → Account Management → Payments → Risk & Compliance
 ### Reuse & scale
 - **Technology-agnostic core** — Java POC today, .NET tomorrow
 - Same pipeline on **any** microservice estate
-- Cursor skills/rules embed methodology in daily engineering
+- Codex skills and repository guidance embed methodology in daily engineering
 
 ### Governance
 - ADRs, artifacts, approval timestamps — **audit trail**
@@ -494,7 +494,7 @@ flowchart TB
 |------|-------|------|
 | AI hypotheses | GPT-4o or mock | Fine-tune on bank domain patterns |
 | .NET estates | Adapter stubs | Full parity with Java |
-| Playbook | Assisted scaffolds + diff review | Deeper Cursor task integration |
+| Playbook | Assisted scaffolds + diff review | Deeper Codex task integration |
 | CI/CD | Manual re-run diagnose | Pipeline in Azure DevOps / GitHub Actions |
 | Prod cutover | Playbook tasks (manual) | Runbook templates + observability hooks |
 | Task status | Dashboard tracking | Jira/ADO sync |

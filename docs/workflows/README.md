@@ -10,6 +10,6 @@
 
 See `docs/poc-demo-script.md` and skill `run-pipeline-stage`.
 
-## Cursor hooks (optional)
+## Codex guidance
 
-If permitted in your environment, add `.cursor/hooks.json` with sessionStart hook per plan. Fallback: use `AGENTS.md` and skills.
+Repository-wide instructions live in `AGENTS.md`; reusable task workflows live in `.agents/skills/`. Follow those instructions when working through the pipeline. No editor hooks are required.

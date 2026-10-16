@@ -71,7 +71,7 @@ def _guidance_only(task: dict[str, Any], phase: dict[str, Any]) -> dict[str, Any
             f"- **Services in scope:** {services}\n"
             f"- **Owner:** {task.get('owner', 'team')}\n\n"
             "No automated patch is generated for this task type. "
-            "Use Cursor with the `migration-playbook` skill and attach relevant OpenAPI/SQL evidence."
+            "Use your coding agent with the `migration-playbook` skill and attach relevant OpenAPI/SQL evidence."
         ),
         "files": [],
     }
