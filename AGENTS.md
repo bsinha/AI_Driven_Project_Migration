@@ -3,7 +3,10 @@
 ## Project standards
 
 - The migration framework core stays technology-agnostic; stack-specific logic belongs in ingestion adapters.
-- Stages discover, ingest, graph, and diagnose are deterministic. AI stages must use evidence-backed inputs and outputs; recommendation and plan require human approval.
+- The pipeline stages are `discover` → `ingest` → `graph` → `diagnose` → `hypothesize` → `recommend` → `plan` → `playbook`.
+- `discover`, `ingest`, `graph`, and `diagnose` are deterministic; AI stages must use evidence-backed inputs and outputs.
+- The required approval gates are `ingest`, `diagnose`, `hypothesize`, `recommend`, and `plan`. `discover`, `graph`, and `playbook` have non-required gates.
+- A required gate is reviewed after its stage completes and must be approved or formally waived before the next stage can run. Recommendation and plan require explicit human approval; approvals must never be inferred or pre-applied.
 - Never auto-merge services. The playbook supports developer-guided execution only.
 
 ### `platform/`
@@ -21,23 +24,25 @@
 
 ## Landscape work (`sample-bank/`)
 
-- Use `explore` subagent to map granular-services before editing
+- Inspect and map granular-services before editing, using the available Codex workspace tools or equivalent repository inspection.
 - Use `over-split-microservice` skill only for POC setup
 - **Never** refactor toward clean architecture — smells are intentional
 
 ## Analysis work (`platform/`)
 
-- Use `bounded-context-analysis` skill before OpenAI calls
-- Use `explore` (medium) for ingestion → graph → analysis flow
-- Use `bugbot` only when user explicitly requests code review
+- Use `bounded-context-analysis` skill before optional OpenAI calls.
+- Inspect the ingestion → graph → analysis flow before making changes.
+- Use code-review tooling only when the user explicitly requests code review.
 
 ## Parallel patterns
 
-- Launch parallel `explore` agents for Java scanner, OpenAPI parser, metadata loader
-- One agent drafts ADRs while another updates architecture docs
+- Parallelize independent repository inspections when useful (for example, Java scanning, OpenAPI parsing, and metadata loading).
+- Keep ADR drafting and architecture-document updates independently reviewable.
 
 ## Pipeline order
 
-discover → ingest → graph → diagnose → hypothesize → recommend → [gate] → plan → [gate] → playbook
+discover → ingest → [gate] → graph → diagnose → [gate] → hypothesize → [gate] → recommend → [gate] → plan → [gate] → playbook
+
+The gate belongs to the completed stage. `PipelineOrchestrator.can_run()` checks that the immediately preceding stage completed and that its required gate is cleared before allowing the next stage. `playbook` is developer-guided and does not auto-merge or write migration changes without explicit file-level approval.
 
 Codex skills for repeatable workflows are in `.agents/skills/`. Older Cursor-specific rules and skills under `.cursor/` are retained as migration history; use this file and `.agents/skills/` as the current guidance.

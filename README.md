@@ -10,7 +10,10 @@ Evidence-led architecture modernization POC — an 8-stage gated pipeline demons
 cd platform
 pip install -e ".[dev]"
 
-# Full pipeline on sample bank
+# Full pipeline on sample bank (manual approval is the default)
+..\scripts\run_pipeline.ps1
+
+# Explicit isolated demo only
 ..\scripts\run_pipeline.ps1 -AutoApprove
 
 # API + Dashboard
@@ -30,9 +33,9 @@ streamlit run migrate_framework/ui/app.py
 
 ## Pipeline
 
-Discover → Ingest → Graph → Diagnose → Hypothesize → Recommend → **[gate]** → Plan → **[gate]** → Playbook
+Discover → Ingest → **[gate]** → Graph → Diagnose → **[gate]** → Hypothesize → **[gate]** → Recommend → **[gate]** → Plan → **[gate]** → Playbook
 
-**Never auto-merges services.** Stages 1–4 are deterministic; human approval is required at the architecture recommendation and migration plan gates.
+**Never auto-merges services.** `discover`, `ingest`, `graph`, and `diagnose` are deterministic. Required gates are `ingest`, `diagnose`, `hypothesize`, `recommend`, and `plan`; each is reviewed after its stage completes and before the next stage runs. Recommendation and plan remain explicit human decision points.
 
 ## Documentation
 
