@@ -22,37 +22,54 @@ REA is not a replacement for MATE's Java/Spring static ingestion. The first usef
 
 If the current REA build cannot reliably parse a suitable offline capture, record that as a result and choose another explicitly supported artifact. Do not invent a REA output schema or couple MATE to undocumented internals.
 
+## Repository inspection findings
+
+The following have been confirmed by inspecting the repository and REA's published documentation; no code has been executed as part of this inspection.
+
+- The sample bank has 16 granular Spring Boot services and a landscape manifest. The customer identity service includes an OpenAPI specification, and MATE's existing OpenAPI adapter already extracts service and endpoint evidence from such files.
+- MATE's current `TraceAdapter` reads `application.yml` / `application.yaml` downstream configuration. Despite the `trace_span` evidence type and tags, this is configured dependency evidence, not a record of actual observed runtime calls.
+- The repository also contains `metadata/traces/payment-flow.json`, a synthetic payment-flow trace with a seven-hop synchronous chain. Therefore, a new REA result must be compared against both existing static evidence and this synthetic trace; a larger evidence count alone is not proof of value.
+- The current `EvidenceItem` model has flexible `attributes`, `relations`, and `tags`, but no first-class coverage/provenance fields. The initial adapter should carry REA-specific provenance and coverage in a documented attributes envelope rather than expand the core model prematurely.
+- REA documents offline HAR 1.2 and SAZ inspection via `inspect-web-network-capture`. Its CLI can emit JSON. This confirms a candidate workflow, not that a suitable capture has been processed or that the actual JSON contract has been validated against a sample.
+- REA's current package metadata identifies version 6.7.0 and requires Node.js `^22.19.0 || ^24.11.0 || >=26.0.0`. Verify the local runtime before attempting the run; do not assume an older Node 22 release is sufficient.
+- The MATE baseline test command in the repository's Makefile is `make test` (which runs `cd platform && pytest -v`). This command has **not** been run in this environment, so there is no baseline pass/fail result yet.
+
 ## Experiment plan
 
 ### 1. Baseline
 
 - Inspect the current ingestion adapters, `EvidenceItem` contract, graph mapping, and tests under `platform/migrate_framework/`.
-- Run the existing tests and record the command, result, and environment.
-- Select a small, representative set of sample-bank services and document evidence already produced by MATE.
+- Run `make test` from the repository root in a local checkout and record the command, result, and environment.
+- Select a small, representative set of sample-bank services and document evidence already produced by MATE. The payment flow is a useful comparison case because the repository already has a synthetic reference trace.
 
 ### 2. Independent REA run
 
-- Verify the REA version, installation requirements, supported input format, and license/dependency constraints.
-- Use one sanitized, offline input only.
-- Save the original input fingerprint and complete REA output as experiment artifacts outside production project data.
-- Record observed coverage, limitations, failures, runtime, and resource use.
+- Verify the installed REA version, Node.js version, installation requirements, and license/dependency constraints.
+- Obtain a sanitized HAR 1.2 capture from a controlled, non-production sample-bank run. Label it as a test capture and retain its fingerprint. Do not represent the repository's synthetic trace JSON as a HAR or as real observed traffic.
+- Run REA's documented offline capture inspection, for example:
+  ```bash
+  rea inspect-web-network-capture /absolute/path/to/sample-bank.har har --json > rea-capture-evidence.json
+  ```
+- Save the complete REA output as an experiment artifact outside production project data.
+- Record observed coverage, limitations, failures, runtime, and resource use. Confirm the output schema from the actual output before writing any parser.
 
 ### 3. Evidence comparison
 
 For each candidate fact, classify it as:
-- already known by MATE;
-- genuinely additional evidence;
+- already known by MATE from source/configuration;
+- already represented by the synthetic metadata trace;
+- genuinely additional observed evidence;
 - duplicate or conflicting evidence;
 - unknown / not observed;
 - unsupported or incomplete.
 
-Do not count an output as incremental value solely because its wording differs from an existing fact.
+Do not count an output as incremental value solely because its wording differs from an existing fact. A runtime observation should be labelled as such and must not be generalized to unobserved paths.
 
 ### 4. Optional adapter
 
-Only after inspecting the real REA output contract, implement a small opt-in adapter in the existing platform structure. Normalize into the current `EvidenceItem` contract without changing the core pipeline or introducing a hard dependency on REA.
+Only after inspecting the real REA output contract, implement a small opt-in adapter in the existing platform structure. Prefer importing a saved REA JSON artifact over invoking REA from inside MATE. Normalize into the current `EvidenceItem` contract without changing the core pipeline or introducing a hard dependency on REA.
 
-The adapter should preserve raw-output provenance and use stable, deterministic identity for repeat ingestion. Conflicting observations must remain visible rather than silently overwrite one another.
+The adapter should preserve raw-output provenance and use stable, deterministic identity for repeat ingestion. Conflicting observations must remain visible rather than silently overwrite one another. Keep the adapter disabled by default and do not add it to the always-on default registry until its opt-in behavior is explicitly designed and tested.
 
 ### 5. Validation
 
@@ -84,8 +101,10 @@ The POC succeeds only if all applicable criteria are met:
 ## Current status
 
 - [x] Dedicated POC branch created from `switch_to_codex`.
-- [ ] Inspect current adapter and evidence contracts.
-- [ ] Record baseline test results.
-- [ ] Verify REA installation and actual output schema.
-- [ ] Select and run one offline evidence experiment.
-- [ ] Decide whether a minimal adapter is justified.
+- [x] Inspect current adapter and evidence contracts.
+- [x] Inspect REA's documented offline capture workflow and declared runtime requirement.
+- [ ] Run MATE baseline tests in a local checkout.
+- [ ] Verify local REA installation/runtime and actual output schema.
+- [ ] Obtain and run one sanitized offline sample-bank capture.
+- [ ] Compare REA findings with static and synthetic-trace baseline evidence.
+- [ ] Decide whether a minimal opt-in adapter is justified.
