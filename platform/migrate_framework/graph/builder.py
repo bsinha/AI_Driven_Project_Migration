@@ -32,7 +32,7 @@ RELATION_TO_EDGE: dict[str, EdgeKind] = {
 }
 
 # Evidence types that describe relationships or metadata — not graph nodes themselves.
-_SKIP_NODE_EVIDENCE_TYPES = frozenset({"http_dependency", "trace_span", "config_property", "build_artifact"})
+_SKIP_NODE_EVIDENCE_TYPES = frozenset({"http_dependency", "trace_span", "config_property", "build_artifact", "network_capture"})
 
 
 def build_service_graph(evidence: list[EvidenceItem]) -> ServiceGraph:

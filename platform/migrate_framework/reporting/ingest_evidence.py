@@ -11,7 +11,8 @@ SOURCE_LABELS: dict[str, str] = {
     "metadata": "Landscape manifest, teams, smells, bounded contexts",
     "openapi": "REST API endpoints from OpenAPI specs",
     "sql-migration": "Database tables from SQL migration scripts",
-    "trace": "Cross-service calls from trace fixtures",
+    "trace": "Configured downstream URLs from application.yml",
+    "rea_capture": "Observed HTTP request records from REA capture Evidence",
     "maven": "Maven module / dependency graph",
     "spring-boot": "Spring Boot application configuration",
     "docker-compose": "Container wiring from compose files",
@@ -74,6 +75,9 @@ def summarize_ingest_evidence(
     http_deps: list[dict[str, str]] = []
     trace_calls: list[dict[str, str]] = []
     api_by_service: dict[str, list[str]] = defaultdict(list)
+    declared_api_by_service: dict[str, list[str]] = defaultdict(list)
+    observed_api_by_service: dict[str, list[str]] = defaultdict(list)
+    unclassified_api_by_service: dict[str, list[str]] = defaultdict(list)
     db_tables: dict[str, list[str]] = defaultdict(list)
 
     for item in evidence:
@@ -98,12 +102,20 @@ def summarize_ingest_evidence(
         elif item_type == "http_dependency" and "->" in subject:
             caller, callee = subject.split("->", 1)
             http_deps.append({"caller": caller, "callee": callee, "source": item.get("source")})
-        elif item_type == "trace_span" and "->" in subject:
+        elif item_type == "trace_span" and "->" in subject and "observed" in (item.get("tags") or []):
             caller, callee = subject.split("->", 1)
             trace_calls.append({"caller": caller, "callee": callee})
         elif item_type == "api_endpoint" and ":" in subject:
-            service_name, endpoint = subject.split(":", 1)
+            service_name = str(attrs.get("service") or subject.split(":", 1)[0])
+            method, path = attrs.get("method"), attrs.get("path")
+            endpoint = f"{method} {path}" if method and path else subject.split(":", 1)[1]
             api_by_service[service_name].append(endpoint)
+            if "observed" in (item.get("tags") or []):
+                observed_api_by_service[service_name].append(endpoint)
+            elif source == "openapi" or "declared" in (item.get("tags") or []):
+                declared_api_by_service[service_name].append(endpoint)
+            else:
+                unclassified_api_by_service[service_name].append(endpoint)
         elif item_type == "database_table" and "." in subject:
             left, right = subject.split(".", 1)
             table = attrs.get("table") or right
@@ -159,6 +171,11 @@ def summarize_ingest_evidence(
                 ],
                 "api_endpoints": len(api_paths),
                 "api_paths": api_paths,
+                "declared_api_endpoints": len(declared_api_by_service.get(service_id, [])),
+                "declared_api_paths": declared_api_by_service.get(service_id, []),
+                "observed_api_endpoints": len(observed_api_by_service.get(service_id, [])),
+                "observed_api_paths": observed_api_by_service.get(service_id, []),
+                "unclassified_api_endpoints": len(unclassified_api_by_service.get(service_id, [])),
                 "outbound_http": sum(1 for d in http_deps if d["caller"] == service_id),
                 "runtime_calls": sum(1 for t in trace_calls if t["caller"] == service_id),
             }
@@ -195,7 +212,7 @@ def summarize_ingest_evidence(
         "openapi_present": by_type.get("api_endpoint", 0) > 0,
         "schema_present": by_type.get("database_table", 0) > 0,
         "static_dependencies_present": by_type.get("http_dependency", 0) > 0,
-        "runtime_traces_present": by_type.get("trace_span", 0) > 0,
+        "runtime_traces_present": bool(trace_calls),
         "landscape_smells_documented": by_type.get("landscape_smell", 0) > 0,
         "bounded_contexts_mapped": by_type.get("bounded_context", 0) > 0,
         "all_services_have_openapi": bool(services) and not services_without_openapi,
@@ -227,4 +244,7 @@ def summarize_ingest_evidence(
         "api_endpoint_totals": {
             service: len(endpoints) for service, endpoints in sorted(api_by_service.items())
         },
+        "declared_api_endpoint_count": sum(map(len, declared_api_by_service.values())),
+        "observed_api_endpoint_count": sum(map(len, observed_api_by_service.values())),
+        "unclassified_api_endpoint_count": sum(map(len, unclassified_api_by_service.values())),
     }

@@ -13,6 +13,7 @@ from migrate_framework.ingestion.adapters.java.spring_boot_adapter import Spring
 from migrate_framework.ingestion.adapters.shared.docker_compose_adapter import DockerComposeAdapter
 from migrate_framework.ingestion.adapters.shared.metadata_adapter import MetadataAdapter
 from migrate_framework.ingestion.adapters.shared.openapi_adapter import OpenApiAdapter
+from migrate_framework.ingestion.adapters.shared.rea_capture_adapter import ReaCaptureAdapter
 from migrate_framework.ingestion.adapters.shared.sql_migration_adapter import SqlMigrationAdapter
 from migrate_framework.ingestion.adapters.shared.trace_adapter import TraceAdapter
 from migrate_framework.models import TechStackProfile
@@ -80,6 +81,7 @@ class AdapterRegistry:
             DockerComposeAdapter(),
             SqlMigrationAdapter(),
             TraceAdapter(),
+            ReaCaptureAdapter(),
             MavenAdapter(),
             SpringBootAdapter(),
             AspNetCoreAdapter(),

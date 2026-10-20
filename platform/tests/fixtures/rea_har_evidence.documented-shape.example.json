@@ -1,0 +1,44 @@
+{
+  "fixture_notice": "Representative fixture using documented REA Evidence fields; not output from a live REA run and not a real HAR capture.",
+  "operation": "inspect_web_network_capture",
+  "evidence_id": "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "parameters": {
+    "format": "har"
+  },
+  "artifact": {
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "normalized_result": {
+    "records": [
+      {
+        "ordinal": 0,
+        "location": {
+          "kind": "json-pointer",
+          "pointer": "/log/entries/0"
+        },
+        "reported": {
+          "startedDateTime": "2026-10-20T10:00:00.000Z",
+          "request": {
+            "method": "POST",
+            "url": "http://127.0.0.1:8109/api/payment_initiation?customerId=123456789",
+            "headers": [
+              {"name": "Authorization", "value": "Bearer fixture-secret-token"},
+              {"name": "Cookie", "value": "session=fixture-session-secret"}
+            ],
+            "postData": {"mimeType": "application/json", "text": "{\"account\":\"fixture-customer-data\"}"}
+          },
+          "response": {
+            "status": 201,
+            "content": {
+              "mimeType": "application/json; charset=utf-8",
+              "text": "{\"created\":true}"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "This record shows a request in the supplied capture; it does not establish complete runtime traffic or identify the caller service."
+  ]
+}

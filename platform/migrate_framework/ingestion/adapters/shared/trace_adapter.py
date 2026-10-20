@@ -1,4 +1,4 @@
-"""Distributed trace / call-chain adapter (heuristic from application.yml)."""
+"""Configured downstream dependency adapter (reads application.yml)."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ class TraceAdapter:
                             relations=[
                                 EvidenceRelation(relation="calls", target=str(target)),
                             ],
-                            tags=["trace", "runtime"],
+                            tags=["dependency", "configured", "application-config"],
                         )
                     )
                     items.append(

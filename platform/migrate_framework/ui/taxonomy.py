@@ -65,6 +65,7 @@ _EVIDENCE_TYPE_MAP: dict[str, EvidenceCategory] = {
     "database": EvidenceCategory.SCHEMA,
     "database_table": EvidenceCategory.SCHEMA,
     "http_dependency": EvidenceCategory.DEPENDENCY,
+    "network_capture": EvidenceCategory.DEPENDENCY,
     "trace_span": EvidenceCategory.DEPENDENCY,
     "landscape_smell": EvidenceCategory.SMELL,
     "bounded_context": EvidenceCategory.CONTEXT,
